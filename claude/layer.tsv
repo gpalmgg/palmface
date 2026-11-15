@@ -1,0 +1,34 @@
+# claude layer — what install.sh writes for this layer.
+# One line per entry, TAB-separated:  mode<TAB>src<TAB>dest
+#   mode  copy | tree | block | json | post
+#   src   path relative to this directory
+#   dest  path relative to $HOME (no leading / or ~, no ..); "-" for post
+# Full contract: "Install contract" in docs/contracts.md.
+#
+# Kit-owned files live under ~/.claude/palmface/ (replaced on re-install, removed on uninstall).
+# The user's own ~/.claude/CLAUDE.md only gets a marked block that imports Palmface's.
+# Nothing here writes ~/.claude/palmface-local/ (the user's files) or Claude Code's memory.
+
+# Working agreements, imported from the user's CLAUDE.md; the long guides, read on demand
+copy	CLAUDE.md	.claude/palmface/CLAUDE.md
+block	claude-md.block	.claude/CLAUDE.md
+tree	references	.claude/palmface/references
+copy	memory/MEMORY.template.md	.claude/palmface/memory/MEMORY.template.md
+
+# Senses (session 3)
+copy	hooks/vibe-sound.sh	.claude/palmface/hooks/vibe-sound.sh
+copy	hooks/critter-of-the-turn.sh	.claude/palmface/hooks/critter-of-the-turn.sh
+copy	critters.txt	.claude/palmface/critters.txt
+
+# Behaviour hooks (session 4) and their shared helpers
+copy	hooks/lib.sh	.claude/palmface/hooks/lib.sh
+copy	hooks/judgment-preflight.sh	.claude/palmface/hooks/judgment-preflight.sh
+copy	hooks/sycophancy-stop.sh	.claude/palmface/hooks/sycophancy-stop.sh
+copy	hooks/closing-drip.sh	.claude/palmface/hooks/closing-drip.sh
+copy	hooks/anti-guessing.sh	.claude/palmface/hooks/anti-guessing.sh
+copy	hooks/context-size.sh	.claude/palmface/hooks/context-size.sh
+copy	hooks/context-guardian.sh	.claude/palmface/hooks/context-guardian.sh
+copy	hooks/cost-tracker.sh	.claude/palmface/hooks/cost-tracker.sh
+
+# Hook registrations, merged into the user's settings.json (their values win, arrays union)
+json	settings.template.json	.claude/settings.json

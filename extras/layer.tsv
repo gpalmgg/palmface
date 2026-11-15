@@ -1,0 +1,17 @@
+# extras layer — what install.sh writes for this layer.
+# One line per entry, TAB-separated:  mode<TAB>src<TAB>dest
+#   mode  copy | tree | block | json | post
+#   src   path relative to this directory
+#   dest  path relative to $HOME (no leading / or ~, no ..); "-" for post
+# Full contract: "Install contract" in docs/contracts.md.
+#
+# Session 2: licence-checked Ghostty shaders (all off by default) and a tmuxinator template.
+tree	ghostty/shaders	.config/palmface/ghostty/shaders
+block	ghostty/shaders.block	.config/ghostty/config
+copy	tmuxinator/palmface-example.yml	.config/tmuxinator/palmface-example.yml
+
+# Session 5: the project launcher (camp), sourced from ~/.zshrc by its own marked block, and the
+# persona and voice starters (blank, kit-owned; the user copies them to ~/.claude/palmface-local/).
+copy	zsh/launcher.zsh	.config/palmface/zsh/launcher.zsh
+block	zsh/zshrc.block	.zshrc
+tree	templates	.claude/palmface/templates

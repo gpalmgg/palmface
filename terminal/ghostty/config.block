@@ -1,0 +1,3 @@
+# Palmface's Ghostty look: ~/.config/palmface/ghostty/config. It loads after this file, so its
+# values win; to keep one of your own, put it in ~/.config/ghostty/overrides (loaded last).
+config-file = ?~/.config/palmface/ghostty/config

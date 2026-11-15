@@ -1,0 +1,67 @@
+# Palmface: Ghostty look. Rosé Pine, Maple Mono, glass, splits, quick terminal.
+#
+# Kit-owned: a re-install replaces this file. Ghostty loads it AFTER ~/.config/ghostty/config,
+# so these values win over yours. To keep one of your own, put it in
+# ~/.config/ghostty/overrides (optional; loaded last, after this file).
+# Reload: cmd+shift+,    Docs for any key: ghostty +explain-config <key>
+
+# ── Palette: follows macOS appearance (dark = Moon, light = Dawn) ──
+theme = dark:Rose Pine Moon,light:Rose Pine Dawn
+
+# ── Glass ──
+background-opacity = 0.92
+background-blur = 24
+
+# ── Font: brew install --cask font-maple-mono (Ghostty bundles Nerd Font symbols) ──
+font-family = "Maple Mono"
+font-size = 15
+font-thicken = true
+adjust-cell-height = 10%
+
+# ── Window ──
+window-padding-x = 16
+window-padding-y = 12
+window-padding-balance = true
+window-colorspace = display-p3
+macos-titlebar-style = transparent
+window-save-state = always
+window-inherit-working-directory = true
+
+# ── Dock icon in Rosé Pine colours ──
+macos-icon = custom-style
+macos-icon-frame = chrome
+macos-icon-ghost-color = #ebbcba
+macos-icon-screen-color = #232136
+
+# ── Cursor: a block, so the cursor shaders (extras layer) have something to follow.
+#    Its colour comes from the theme, so it reads in both light and dark. ──
+cursor-style = block
+cursor-style-blink = true
+cursor-opacity = 0.9
+
+# ── Splits (native, next to tmux) ──
+unfocused-split-opacity = 0.75
+split-divider-color = #c4a7e7
+keybind = cmd+d=new_split:right
+keybind = cmd+shift+d=new_split:down
+
+# ── Quick terminal: a terminal that drops down from the top of the screen ──
+# Off until you pick a key. To use cmd+` from anywhere, put this in ~/.config/ghostty/overrides:
+#   keybind = global:cmd+grave_accent=toggle_quick_terminal
+# (macOS asks for Accessibility permission once, and that key stops cycling your windows.)
+quick-terminal-position = top
+quick-terminal-screen = mouse
+quick-terminal-animation-duration = 0.15
+
+# ── Bell: Ghostty's default bounces the dock and badges the title when something finishes.
+#    For a sound too: bell-features = attention,title,system ──
+
+# ── Mouse ──
+mouse-hide-while-typing = true
+
+# ── Shell integration: no-cursor keeps the block cursor at the prompt too (Ghostty would
+#    otherwise switch to a bar there, and the cursor shaders follow the block) ──
+shell-integration-features = no-cursor,sudo,title
+
+# ── Your overrides: loaded last, so they win (the file is optional) ──
+config-file = ?~/.config/ghostty/overrides

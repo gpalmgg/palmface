@@ -1,0 +1,146 @@
+# Palmface's critter bank: owls by night (19:00 to 07:00), cats by day.
+# Read by the critter-of-the-turn hook (one critter per Claude turn) and by `hello` in the
+# terminal. Drawn fresh for Palmface; MIT like the rest of the kit.
+#
+# Add your own in ~/.claude/palmface-local/critters.txt, in the same format. Both files are read.
+# That folder is yours: Palmface never writes there, and uninstall leaves it alone. (This file is
+# Palmface's: a re-install replaces it.)
+#
+# Each critter is a line "@ owl <name>" or "@ cat <name>", then its art, then one blank line.
+# Art may not contain a blank line, and an art line may not start with "@ " (it would begin a
+# new critter). Lines outside a critter, like these, are ignored. Keep them small, about
+# 5 lines and 24 columns, so they fit in a reply and in a narrow window.
+
+@ owl perched
+   ,_,
+  (o,o)
+  (( ))
+ --"-"--
+
+@ owl blinking
+   ,_,
+  (o,-)
+  (( ))
+ --"-"--
+
+@ owl dozing
+   ,_,
+  (-,-)  z
+  (( ))   z
+ --"-"--
+
+@ owl hooting
+   ,_,
+  (O,O)  hoo
+  (( ))    hoo
+ --"-"--
+
+@ owl and the moon
+   ,_,      .-.
+  (o,o)    (   )
+  (( ))     `-'
+ --"-"--
+
+@ owl under the stars
+  *    ,_,    .
+      (o,o)      *
+  .   (( ))
+    ---"-"---
+
+@ owl reading
+   ,_,   ____
+  (o,o) |~~~~|
+  (( ))-|____|
+ --"-"--
+
+@ owl in flight
+ \\   ,_,   //
+  \\ (o,o) //
+     (( ))
+      " "
+
+@ owl two owls
+   ,_,   ,_,
+  (o,o) (o,o)
+  (( )) (( ))
+ --"-"---"-"--
+
+@ owl owlet
+   ,,
+  (o.o)
+   (")
+  --"--
+
+@ owl with a lantern
+   ,_,     _
+  (o,o)   [*]
+  (( ))----'
+ --"-"--
+
+@ owl wide awake
+   ,_,
+  (@,@)
+  (( ))
+ --"-"--
+
+@ cat sitting
+  /\_/\
+ ( o.o )
+  > ^ <
+
+@ cat loaf
+  /\_/\
+ ( -.- )
+ (_____)~
+
+@ cat curious
+  /\_/\
+ ( o.O ) ?
+  > ^ <
+
+@ cat stretching
+  /\_/\__________
+ ( o.o )         )~
+  `--'---'--'--'
+
+@ cat waving
+  /\_/\
+ ( ^.^ )/
+  )   (
+ (__ __)
+
+@ cat in a box
+  /\_/\
+ ( o.o )
+ +-----+
+ |     |
+ +-----+
+
+@ cat and mouse
+  /\_/\
+ ( o.o )    <:3 )~
+  > ^ <
+
+@ cat in the sun
+  \ | /    /\_/\
+ -- o --  ( -.- )
+  / | \    > ~ <
+
+@ cat purring
+  /\_/\
+ ( ^.^ )  prrr
+  (")(")
+
+@ cat two cats
+  /\_/\  /\_/\
+ ( o.o )( o.o )
+  > ^ <  > ^ <
+
+@ cat on the keyboard
+  /\_/\
+ ( o.o )
+ [asdf___]
+
+@ cat kitten
+  /\_/\
+ (=^.^=)

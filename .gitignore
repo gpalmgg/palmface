@@ -1,0 +1,10 @@
+# Local-only. Never committed, never published.
+scripts/denylist.txt
+scripts/leak-allow.local.txt
+.handoff/
+
+# macOS
+.DS_Store
+
+# Dependencies (vendored code is built, not committed with its deps)
+node_modules/

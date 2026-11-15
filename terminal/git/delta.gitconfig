@@ -1,0 +1,20 @@
+# Palmface: delta, the syntax-highlighting pager for git diffs (brew install git-delta).
+# Kit-owned: a re-install replaces this file. Included at the end of ~/.gitconfig.
+#
+# Both commands fall back to the stock tools when delta is not installed, so git never
+# breaks on a machine without it.
+[core]
+	pager = "if command -v delta >/dev/null 2>&1; then exec delta; else exec less; fi"
+[interactive]
+	diffFilter = "if command -v delta >/dev/null 2>&1; then exec delta --color-only; else exec cat; fi"
+
+# Palmface's look is a named delta feature, so any setting you put in your own [delta]
+# section wins over it (e.g. side-by-side = false for narrow panes).
+[delta]
+	features = palmface
+[delta "palmface"]
+	navigate = true
+	line-numbers = true
+	side-by-side = true
+	# ansi = your terminal's own colours, so diffs follow Rosé Pine Moon/Dawn
+	syntax-theme = ansi

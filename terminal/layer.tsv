@@ -1,0 +1,25 @@
+# terminal layer — what install.sh writes for this layer.
+# One line per entry, TAB-separated:  mode<TAB>src<TAB>dest
+#   mode  copy | tree | block | json | post
+#   src   path relative to this directory
+#   dest  path relative to $HOME (no leading / or ~, no ..); "-" for post
+# Full contract: "Install contract" in docs/contracts.md.
+#
+# Kit content lives in kit-owned files under ~/.config/palmface/; your dotfiles only get a
+# small palmface block that points at it.
+copy	ghostty/config	.config/palmface/ghostty/config
+block	ghostty/config.block	.config/ghostty/config
+copy	starship.toml	.config/palmface/starship.toml
+copy	tmux/tmux.conf	.config/palmface/tmux/tmux.conf
+copy	tmux/plugins.list	.config/palmface/tmux/plugins.list
+copy	tmux/load-plugins.sh	.config/palmface/tmux/load-plugins.sh
+block	tmux/tmux.conf.block	.tmux.conf
+copy	zsh/vibes.zsh	.config/palmface/zsh/vibes.zsh
+block	zsh/zshrc.block	.zshrc
+copy	bin/screensaver.sh	.config/palmface/bin/screensaver.sh
+tree	cows	.config/palmface/cows
+copy	git/delta.gitconfig	.config/palmface/git/delta.gitconfig
+block	git/gitconfig.block	.gitconfig
+post	post/shell-check.sh	-
+post	post/config-notes.sh	-
+post	post/tmux-plugins.sh	-

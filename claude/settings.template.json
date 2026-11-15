@@ -1,0 +1,75 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/critter-of-the-turn.sh\"" }
+        ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/judgment-preflight.sh\"", "timeout": 5 }
+        ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/closing-drip.sh\" prompt", "timeout": 5 }
+        ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/context-size.sh\"", "timeout": 5 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/vibe-sound.sh\" stop" }
+        ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/sycophancy-stop.sh\"", "timeout": 10 }
+        ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/closing-drip.sh\" stop", "timeout": 10 }
+        ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/anti-guessing.sh\"", "timeout": 10 }
+        ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/cost-tracker.sh\"", "timeout": 30 }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/vibe-sound.sh\" notification" }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/context-guardian.sh\" save", "timeout": 30 }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          { "type": "command", "command": "/bin/bash \"$HOME/.claude/palmface/hooks/context-guardian.sh\" restore", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

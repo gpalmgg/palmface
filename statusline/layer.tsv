@@ -1,0 +1,12 @@
+# statusline layer — what install.sh writes for this layer.
+# One line per entry, TAB-separated:  mode<TAB>src<TAB>dest
+#   mode  copy | tree | block | json | post
+#   src   path relative to this directory
+#   dest  path relative to $HOME (no leading / or ~, no ..); "-" for post
+# Full contract: "Install contract" in docs/contracts.md.
+tree	dist	.claude/palmface/statusline/dist
+copy	package.json	.claude/palmface/statusline/package.json
+copy	LICENSE	.claude/palmface/statusline/LICENSE
+copy	README.md	.claude/palmface/statusline/README.md
+copy	statusline.sh	.claude/palmface/statusline/statusline.sh
+json	settings.json	.claude/settings.json

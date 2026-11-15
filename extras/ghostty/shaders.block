@@ -1,0 +1,17 @@
+# Palmface shaders (extras layer). Files and credits: ~/.config/palmface/ghostty/shaders/
+# All are off. To turn one on, copy its line to BELOW this block (lines between the palmface
+# markers are rewritten on every re-install), remove the leading "# ", and reload (cmd+shift+,).
+# Several can be chained; they run in the order listed. The cursor ones want cursor-style = block
+# (Palmface's terminal layer sets it). Animated shaders keep the GPU busy; to pause them all:
+# custom-shader-animation = false
+#
+# Cursor effects (MIT, Sahaj Bhatt):
+# custom-shader = ~/.config/palmface/ghostty/shaders/sonic_boom_cursor.glsl
+# custom-shader = ~/.config/palmface/ghostty/shaders/ripple_cursor.glsl
+# custom-shader = ~/.config/palmface/ghostty/shaders/ripple_rectangle_cursor.glsl
+# custom-shader = ~/.config/palmface/ghostty/shaders/rectangle_boom_cursor.glsl
+# custom-shader = ~/.config/palmface/ghostty/shaders/cursor_tail.glsl
+# custom-shader = ~/.config/palmface/ghostty/shaders/cursor_warp.glsl
+# custom-shader = ~/.config/palmface/ghostty/shaders/cursor_sweep.glsl
+# Whole screen, a CRT look (Unlicense: Timothy Lottes, adapted for Ghostty by Qwerasd):
+# custom-shader = ~/.config/palmface/ghostty/shaders/crt.glsl

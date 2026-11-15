@@ -1,0 +1,26 @@
+# Palmface: an example tmuxinator layout. Make your own from it:
+#   cp ~/.config/tmuxinator/palmface-example.yml ~/.config/tmuxinator/work.yml
+#   edit name/roots, then:  tmuxinator start work   (or: mux work)
+# Kit-owned: a re-install replaces this file. Your copies are yours.
+
+name: palmface-example
+root: ~/
+
+windows:
+  - claude:
+      # Claude Code on the left, a shell beside it
+      layout: main-vertical
+      panes:
+        - echo "ready: run claude"
+        - echo "a shell beside it"
+  - code:
+      # each window can start in its own folder:
+      # root: ~/Projects/your-project
+      panes:
+        - echo "code: open your editor here"
+  - notes:
+      panes:
+        - echo "notes, lists, scratch"
+  - shell:
+      panes:
+        - clear

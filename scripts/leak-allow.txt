@@ -1,0 +1,19 @@
+# Fixed strings blanked out (case-insensitive) before scripts/leak-scan.sh matches a line.
+# Committed and public, so nothing identifying belongs here. Entry forms:
+#   <string>                 exempt everywhere
+#   file:<path>:<string>     exempt only in that file (contents, path; tree and --history)
+#   meta:<string>            exempt only in commit author, committer and message lines
+# Longer entries are blanked first. Strings that are yours (a credit line, a commit identity)
+# go in scripts/leak-allow.local.txt: gitignored, read when present, same forms.
+kit@users.noreply.github.com
+noreply@anthropic.com
+git@github.com
+@example.com
+round-robin
+gist.github.com/qwerasd205/c3da6c610c8ffe17d6d2d3cc7068f17f
+# The tmux plugins' pinned upstream commits (public; terminal/tmux/plugins.list, the notices).
+39e39e76f6710b40a4b66222c6688ece1da8d3a4
+cff343cf9e81983d3da0c8562b01616f12e8d548
+0698e8f4b17d6454c71bf5212895ec055c578da0
+meta:@users.noreply.github.com
+palmface

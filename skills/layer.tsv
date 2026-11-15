@@ -1,0 +1,32 @@
+# skills layer — what install.sh writes for this layer.
+# One line per entry, TAB-separated:  mode<TAB>src<TAB>dest
+#   mode  copy | tree | block | json | post
+#   src   path relative to this directory
+#   dest  path relative to $HOME (no leading / or ~, no ..); "-" for post
+# Full contract: "Install contract" in docs/contracts.md.
+#
+# Session 5: the curated core skills, at Claude Code's fixed path ~/.claude/skills/<name>/.
+# Every name has the palmface- prefix, so a user's own skill of the same plain name is never touched
+# (and Claude Code built-ins such as /status are never shadowed). Each folder is installed whole by a
+# tree line, scripts and supporting files included. The index: claude/references/skills.md.
+tree	palmface-autopilot	.claude/skills/palmface-autopilot
+tree	palmface-build	.claude/skills/palmface-build
+tree	palmface-canopy	.claude/skills/palmface-canopy
+tree	palmface-chain	.claude/skills/palmface-chain
+tree	palmface-deep-plan	.claude/skills/palmface-deep-plan
+tree	palmface-heartwood	.claude/skills/palmface-heartwood
+tree	palmface-honest-take	.claude/skills/palmface-honest-take
+tree	palmface-intake	.claude/skills/palmface-intake
+tree	palmface-listen	.claude/skills/palmface-listen
+tree	palmface-look	.claude/skills/palmface-look
+tree	palmface-metaplan	.claude/skills/palmface-metaplan
+tree	palmface-premortem	.claude/skills/palmface-premortem
+tree	palmface-prove	.claude/skills/palmface-prove
+tree	palmface-qc	.claude/skills/palmface-qc
+tree	palmface-retro	.claude/skills/palmface-retro
+tree	palmface-save	.claude/skills/palmface-save
+tree	palmface-seedbed	.claude/skills/palmface-seedbed
+tree	palmface-sessions	.claude/skills/palmface-sessions
+tree	palmface-start	.claude/skills/palmface-start
+tree	palmface-status	.claude/skills/palmface-status
+tree	palmface-stress-test	.claude/skills/palmface-stress-test

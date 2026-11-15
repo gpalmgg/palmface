@@ -1,0 +1,59 @@
+# Palmface: starship prompt, Rosé Pine. Kit-owned: a re-install replaces this file.
+# vibes.zsh points STARSHIP_CONFIG here unless you already set it to your own file.
+#
+# The palette names Rosé Pine's colours but maps them to your terminal's ANSI slots, so the
+# prompt follows Ghostty's light/dark switch (Moon by night, Dawn by day) by itself.
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+format = """
+$directory\
+$git_branch\
+$git_status\
+$cmd_duration\
+$jobs\
+$character"""
+
+palette = "rose_pine"
+
+[palettes.rose_pine]
+love = "red"
+pine = "green"
+gold = "yellow"
+foam = "blue"
+iris = "purple"
+rose = "cyan"
+text = "white"
+muted = "bright-black"
+
+[directory]
+style = "bold foam"
+truncation_length = 3
+truncate_to_repo = true
+read_only = " 󰌾"
+
+[git_branch]
+symbol = " "
+style = "bold iris"
+
+[git_status]
+style = "rose"
+ahead = "⇡"
+behind = "⇣"
+diverged = "⇕"
+modified = "*"
+untracked = "?"
+staged = "+"
+
+[cmd_duration]
+min_time = 3000
+format = "[ $duration]($style) "
+style = "gold"
+
+[jobs]
+symbol = "✦"
+style = "pine"
+
+[character]
+success_symbol = "[❯](bold rose)"
+error_symbol = "[❯](bold love)"
