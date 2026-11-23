@@ -43,48 +43,158 @@ question with options that finishes it.
 ## Requirements
 
 - macOS (the kit checks). Linux is not supported.
-- Claude Code.
-- zsh for the terminal layer: it is macOS's default shell, and install warns if yours isn't.
+- Claude Code, from its native installer (step 3 below). Voice needs a Claude account login
+  (claude.ai), not an API (Console) key.
+- zsh for the terminal layer. It is macOS's default shell. If your account still uses bash,
+  install offers to switch it; with any other shell it warns.
 - [Homebrew](https://brew.sh) for the tools (optional: everything checks a tool exists before
   using it).
 - `jq` for merging `settings.json`. macOS 15 and later ship it; the Brewfile has it too.
 - `node` 18 or newer for the statusline (the Brewfile has it; nvm, volta or asdf work too).
 
+## Before you start
+
+Never used a terminal? Start here.
+
+**Two places to type.** The terminal is the window where commands run. Its last line ends in
+`%` (after Palmface, in `❯`) and waits for you: that is the prompt. Once you type `claude`, you
+are talking to Claude Code instead, inside the same window. Install commands go to the
+terminal, not to Claude. In Claude? Type `/exit` and press Return to get back.
+
+**How to run a command.** The command boxes below hold one command per line. For each line:
+
+1. Copy it: select it and press Cmd+C.
+2. Click in the Ghostty window.
+3. Press Cmd+V to paste.
+4. Press Return.
+5. Wait until the prompt comes back on a new line. Then do the next line.
+
+**Passwords stay invisible.** When the terminal asks for a password, it means your Mac password.
+Nothing shows while you type, not even dots. Type it and press Return.
+
+**Check your shell** once Ghostty is open (step 1):
+
+```sh
+echo $SHELL
+```
+
+`/bin/zsh` is what you want. `/bin/bash` is fine too: install offers to switch (see "Not zsh?"
+below).
+
+**Keys that are hard to find.** On a German keyboard, `~` is Option+N, then Space, and `|` is
+Option+7. You only need them when you type a command instead of pasting it.
+
 ## Install
 
-Clone a tagged release, anywhere. Install copies what it needs, so you can delete the clone
-afterwards.
+Five steps. Each ends with **It worked if:**, a check to make before the next step.
+
+### 1. Ghostty
+
+Ghostty is the terminal: the window where you type commands. It runs on Apple Silicon and
+Intel Macs, macOS 13 or later.
+
+1. Open [ghostty.org/download](https://ghostty.org/download) and click the macOS download. You
+   get `Ghostty.dmg`.
+2. Open `Ghostty.dmg` and drag Ghostty into Applications.
+3. Open Ghostty from Applications. If macOS asks whether to open an app downloaded from the
+   internet, click Open.
+
+**It worked if:** a window opens with a line ending in `%` (or `$` on a bash account) and a
+blinking cursor. Now check your shell (above).
+
+### 2. Homebrew
+
+Homebrew installs the tools Palmface uses. This is its install command, from
+[brew.sh](https://brew.sh):
+
+```sh
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+1. Paste it into Ghostty and press Return.
+2. Type your Mac password when it asks, and press Return when it asks you to continue. It takes
+   a few minutes.
+3. If it ends with **Next steps** and commands to run, run them, copied from your own window.
+   They are made for your Mac, so never copy them from anywhere else.
+
+**It worked if:** `brew --version` prints `Homebrew` and a version number.
+
+### 3. Claude Code
+
+This is the native install command (not npm), from
+[claude.com/claude-code](https://claude.com/claude-code):
+
+```sh
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+Paste it into Ghostty and press Return.
+
+You log in at your first session. There, pick **Claude account with subscription**, not
+**Anthropic Console account**: the Console is for API keys, and voice doesn't work with one.
+
+**It worked if:** the installer ends without an error. If typing `claude` now says
+`command not found`, that's fine: steps 4 and 5 fix it.
+
+### 4. Palmface
+
+Clone a tagged release. Install copies what it needs, so you can delete the clone afterwards.
 
 <!-- tested: install -->
 ```sh
-git clone --branch v0.1.0 https://github.com/gpalmgg/palmface.git ~/palmface
+git clone --branch v0.1.1 https://github.com/gpalmgg/palmface.git ~/palmface
 cd ~/palmface
 brew bundle --file=Brewfile
 ./install.sh --all --dry-run
 ./install.sh --all
 ```
 
-Line by line, after the clone:
-1. `brew bundle` installs the tools the layers use. `install.sh` never runs brew itself. (Before
-   that, you can check the release, as below.)
-2. `--dry-run` prints every action the install would take, and writes nothing.
-3. The last line installs for real. Instead of `--all` you can pick layers: `--terminal`,
-   `--claude`, `--extras`.
+Run the lines one at a time. What they do:
+1. `git clone` copies the release into `~/palmface`, and `cd` moves into it.
+2. `brew bundle` installs the tools the layers use. `install.sh` never runs brew itself. If you
+   downloaded Ghostty by hand in step 1, it leaves Ghostty alone. (Before this line, you can
+   check the release, as below.)
+3. `--dry-run` prints every action the install would take, and writes nothing.
+4. The last line installs for real. Instead of `--all` you can pick layers: `--terminal`,
+   `--claude`, `--extras`. If your account uses bash, it ends with a question: see "Not zsh?"
+   below.
 
-Then open a new terminal window, and restart Claude Code.
+**It worked if:** the install prints a line that starts with `done:`, and no error.
+
+### 5. Restart Ghostty
+
+Quit Ghostty with Cmd+Q and open it again, so it loads what Palmface set up. If Claude Code was
+running, start it again too.
+
+**It worked if:** the new window greets you with an owl or a cat, with `camp: your projects`
+under it, and `claude --version` prints a version number.
+
+**Not zsh?** If `echo $SHELL` printed `/bin/bash` (common on a Mac moved over from an older
+one), install warns before it writes anything. At the end it asks:
+
+```
+palmface: switch your login shell to zsh now? Your Mac password is needed. [Y/n]
+```
+
+Press Return for yes, then type your Mac password (it stays invisible). Then quit and reopen
+Ghostty. If the switch fails, install still finishes, and prints `chsh -s /bin/zsh` for you to
+run later. With fish or another shell, install only warns: the zsh parts (aliases, greeting,
+prompt) load only in zsh, while Ghostty, tmux and git delta work either way.
+
+**Using ChatGPT/Codex instead?** Only `./install.sh --terminal` applies.
 
 **Check the release.** The only official source is this repository, at a tagged release. The
 maintainer never sends install or update instructions through issues, pull requests, email or
 messages ([`SECURITY.md`](SECURITY.md)). To check that your clone is the release:
 `git -C ~/palmface rev-parse HEAD` prints its commit, which should match the commit the
-repository's Tags page shows for `v0.1.0`. Releases are not signed yet, so the commit is the
+repository's Tags page shows for `v0.1.1`. Releases are not signed yet, so the commit is the
 thing to compare. Read what you are about to install, too: it is plain shell, Markdown and one
 small node script.
 
 | Flag | What it does |
 |---|---|
 | `--terminal` | the terminal layer (`terminal/`) |
-| `--claude` | Claude Code: `CLAUDE.md`, hooks, settings (`claude/`), the statusline (`statusline/`) and the skills (`skills/`) |
+| `--claude` | Claude Code: `CLAUDE.md`, hooks, settings with voice on (`claude/`), the statusline (`statusline/`) and the skills (`skills/`) |
 | `--extras` | the launcher, the persona and voice starters, Ghostty shaders, a tmuxinator template (`extras/`) |
 | `--all` | every layer |
 | `--dry-run` | print every action and write nothing, not even the backup folder |
@@ -105,8 +215,79 @@ Notes:
   Claude Code version, and the kit's tests can't see it.)
 - **Your own instructions win.** The import sits at the end of your file, and Palmface's
   `CLAUDE.md` says that where your instructions differ, yours apply.
-- **Not zsh?** Install warns, and the terminal layer's zsh parts stay inactive until you switch
-  (`chsh -s /bin/zsh`).
+
+## First session
+
+Start Claude Code in a folder of its own. Make one, move into it, and start Claude:
+
+```sh
+mkdir -p ~/Projects/first && cd ~/Projects/first
+claude
+```
+
+Next time, type `camp` instead: it lists the folders in `~/Projects` and starts Claude in the
+one whose number you type.
+
+The first time, Claude Code shows a few screens. Among them:
+
+1. **The theme** ("Choose the text style"). Match your macOS look: a dark theme if macOS is
+   dark, a light one if it is light. A dark theme on a light Mac gives white text on white.
+2. **The login.** Pick **Claude account with subscription**. A browser page opens: sign in
+   there, then come back to Ghostty.
+3. **Trust this folder.** It is the folder you just made: say yes.
+4. **The Palmface import.** Claude Code may ask once to approve importing
+   `~/.claude/palmface/CLAUDE.md`. Say yes, or Palmface's agreements won't load.
+
+**Voice.** Hold Space and talk; let go when you're done. The first time, macOS asks whether
+Ghostty may use the Microphone: allow it. `/voice` switches between hold, tap and off. Voice
+needs the Claude account login, not an API key.
+
+**Other pop-ups.** macOS may also ask whether Ghostty may use things such as Music or Photos.
+Saying no is fine.
+
+**Check that Palmface loaded.** Ask Claude: `What does Palmface's CLAUDE.md ask of you?`
+
+**It worked if:** Claude names Palmface's working agreements, such as holding its ground,
+asking questions with the question tool, and closing the loop.
+
+## If something's off
+
+**`command not found`.** For `brew`, run the Next steps lines from step 2. For `claude`, quit
+and reopen Ghostty (step 5). Still not found? Run `echo $SHELL`: if it says bash, see "Not
+zsh?". Otherwise, put Claude Code's folder on your PATH, then quit and reopen Ghostty:
+
+```sh
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
+```
+
+**White text you can't read.** Claude Code's theme doesn't match macOS's look. In Claude, type
+`/theme` and pick light or dark to match.
+
+**Holding Space does nothing.** Type `/voice` and choose hold. Check that Ghostty is allowed
+under Microphone (System Settings, Privacy & Security). Voice needs a Claude account login, not
+an API key. As a fallback, macOS Dictation works in any app (System Settings, Keyboard).
+
+## Staying safe
+
+- **Claude Code starts in auto mode:** it runs most steps without asking you first. Shift+Tab
+  switches modes.
+- **Stop and read** before Claude does anything with money, sends anything, or deletes
+  anything, and when it works with files or text from strangers. Text from a stranger can carry
+  instructions aimed at Claude.
+- **Autopilot and `/palmface-chain` stay off** until you turn them on (see Autopilot).
+
+## After install (optional)
+
+None of these are part of Palmface. Add them when you want them.
+
+- **Claude in Chrome**, so Claude can use web pages. Chrome only: there is no Safari version.
+  Install the Claude in Chrome extension and sign in to it, then type `/chrome` in a session.
+- **Computer use**, so Claude can use other apps on your Mac. It needs Ghostty allowed under
+  Accessibility and under Screen Recording (System Settings, Privacy & Security).
+- **Connectors**, so Claude can reach other services you use: on claude.ai, open Settings, then
+  Connectors.
+- **Remote control**, to follow a session from elsewhere: type `/remote-control` in a session,
+  or start one with `claude --remote-control`. Then open it in the Claude app.
 
 ## What each layer writes
 
@@ -124,11 +305,12 @@ fetch, the setup notes) are skipped with a warning, so nothing lands in your dot
 | Your file | What Palmface does to it | The line it adds |
 |---|---|---|
 | `~/.zshrc` | a block per layer (terminal, extras) | `source ~/.config/palmface/zsh/vibes.zsh`, and the launcher |
+| `~/.zprofile` | a block (terminal) | `source ~/.config/palmface/zsh/paths.zsh`: Homebrew and `~/.local/bin` on your PATH |
 | `~/.tmux.conf` | a block | `source-file -q ~/.config/palmface/tmux/tmux.conf` |
 | `~/.gitconfig` | a block | `[include] path = ~/.config/palmface/git/delta.gitconfig` |
 | `~/.config/ghostty/config` | a block per layer (terminal, extras) | `config-file = ?~/.config/palmface/ghostty/config`, and the shaders (all commented out) |
 | `~/.claude/CLAUDE.md` | a block | `@~/.claude/palmface/CLAUDE.md` |
-| `~/.claude/settings.json` | a merge: your values win, lists are joined | the hook registrations and the `statusLine` |
+| `~/.claude/settings.json` | a merge: your values win, lists are joined | the hook registrations, the `statusLine`, and voice on: `voiceEnabled` and `voice.enabled` (not with `PALMFACE_VOICE=off`) |
 
 A block sits between `# >>> palmface:terminal >>>` and `# <<< palmface:terminal <<<` (named for
 its layer). In a Markdown file such as `CLAUDE.md` the markers are HTML comments:
@@ -137,12 +319,16 @@ a block, your edits stay through re-installs and uninstall.
 
 | Layer | Kit files |
 |---|---|
-| terminal | `~/.config/palmface/`: `ghostty/config`, `starship.toml`, `tmux/` (config, plugin list, loader, and the plugins once cloned), `zsh/vibes.zsh`, `bin/screensaver.sh`, `cows/` (owl, cat, sleepycat), `git/delta.gitconfig` |
+| terminal | `~/.config/palmface/`: `ghostty/config`, `starship.toml`, `tmux/` (config, plugin list, loader, and the plugins once cloned), `zsh/vibes.zsh`, `zsh/paths.zsh`, `bin/screensaver.sh`, `cows/` (owl, cat, sleepycat), `git/delta.gitconfig` |
 | claude | `~/.claude/palmface/`: `CLAUDE.md`, `references/` (six guides Claude reads on demand), `hooks/`, `critters.txt`, `memory/MEMORY.template.md`, `statusline/`; and `~/.claude/skills/palmface-*/` |
 | extras | `~/.config/palmface/ghostty/shaders/`, `~/.config/palmface/zsh/launcher.zsh`, `~/.claude/palmface/templates/` (persona and voice starters), `~/.config/tmuxinator/palmface-example.yml` |
 
 Things worth knowing about the terminal layer:
 
+- **Your PATH gets Homebrew and Claude Code.** The `~/.zprofile` block loads
+  `~/.config/palmface/zsh/paths.zsh`. It puts Homebrew on your PATH (`/opt/homebrew` on Apple
+  Silicon, else `/usr/local` on Intel) unless `brew` is there already, and `~/.local/bin`, where
+  Claude Code's native installer puts `claude`. Each goes on once.
 - **Palmface's Ghostty values win over yours,** because Ghostty reads included files last. To
   keep one of your own, put it in `~/.config/ghostty/overrides`: Palmface's config loads that
   file at its very end. Install names any of your settings it now overrides.
@@ -234,6 +420,7 @@ settings and the idle animation are in `~/.claude/palmface/statusline/README.md`
 |---|---|
 | `PALMFACE_SESSIONS_DIR` | where `/palmface-sessions` looks for past sessions (default `~/.claude/projects`) |
 | `PALMFACE_GIT_BASE` | where install clones the tmux plugins from (default `https://github.com`), for a mirror |
+| `PALMFACE_VOICE=off` | install leaves voice alone: no `voiceEnabled` or `voice.enabled` in `settings.json`. Set it on the install line: `PALMFACE_VOICE=off ./install.sh --all` |
 
 ## The skills
 
@@ -288,8 +475,11 @@ from Anthropic's official marketplace that go well with the kit, with their inst
 
 ## `camp`
 
-`camp` is the project launcher from the extras layer. It lists the git projects one level down
-in `~/Projects` (or `PALMFACE_PROJECTS_DIR`), and starts Claude Code in the one you pick.
+`camp` is the project launcher from the extras layer. It lists the folders one level down in
+`~/Projects` (or `PALMFACE_PROJECTS_DIR`), git projects and plain folders alike, and starts
+Claude Code in the one you pick. Where a git project shows its branch, a plain folder shows
+`plain folder`. Hidden folders are skipped. When `camp` is there, a new window says
+`camp: your projects`.
 
 | Command | What it does |
 |---|---|
@@ -301,9 +491,12 @@ in `~/Projects` (or `PALMFACE_PROJECTS_DIR`), and starts Claude Code in the one 
 A folder of git projects inside your projects folder is a group, and its projects are listed
 too. In the menu, a number starts that project, or opens or closes a group. Add `w`
 for a new git worktree, `r` to continue the last conversation, or `+K` to give Claude project K's
-folder too, as in `3r+1`. `f` searches with fzf. It is always available as `palmface-camp`; the
-short `camp` is defined only when nothing else has that name. It writes nothing. Hide projects
-by listing their names in `~/.claude/palmface-local/projects.ignore`.
+folder too, as in `3r+1`. `w` needs git: on a plain folder, camp starts without a worktree and
+says so. `f` searches with fzf. It writes nothing. To hide clutter, list the names in
+`~/.claude/palmface-local/projects.ignore`.
+
+**Your own `camp` wins.** If you already have a `camp` (a function, an alias or a program),
+Palmface leaves it alone, and its launcher is still there as `palmface-camp`.
 
 ## Your own files: `~/.claude/palmface-local/`
 
@@ -317,7 +510,7 @@ Kit files are replaced on every install; put your changes here instead.
 | `prices.tsv` | dollars per million tokens per model, for `cost-tracker.sh report` (format in the script's header) |
 | `persona.md` | how you decide. Autopilot and the skills that need your taste read it |
 | `voice.md` | how you write. Drafts that go out under your name follow it |
-| `projects.ignore` | projects `camp` hides, one name per line (`name` or `group/name`) |
+| `projects.ignore` | folders `camp` hides, one name per line (`name` or `group/name`) |
 | `memory/` | a hand-kept memory index, if you want one instead of Claude Code's own (see `~/.claude/palmface/references/memory.md`) |
 
 The extras layer ships blank starters for the persona and the voice. Copy them in, then fill
@@ -391,7 +584,16 @@ cd ~/palmface
 ./uninstall.sh
 ```
 
-The dry run prints what it would restore and changes nothing.
+The dry run prints what it would restore and changes nothing. At the end, uninstall prints two
+notes:
+
+- It doesn't change your shell back. If you want bash again: `chsh -s /bin/bash`.
+- With Palmface's `~/.zprofile` block gone, `claude` may not be found any more. If so, put
+  Claude Code's folder back on your PATH, then quit and reopen the terminal:
+
+```sh
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
+```
 
 Deleted the clone? Install keeps a copy of the uninstaller:
 
@@ -434,6 +636,11 @@ ones you don't use elsewhere.
   terminals.
 - Palmface's CLAUDE.md import approval and chained headless runs are not covered by the tests
   (see above).
+- If `~/.claude/settings.json` already has `"voiceEnabled": false` but no `voice` key (written
+  by an older Claude Code), install still turns voice on, because Claude Code reads
+  `voice.enabled` first. To turn it off again, type `/voice` in a session and choose off.
+- `PALMFACE_VOICE=off` on a re-install doesn't remove the voice keys an earlier install added.
+  Use `/voice` to turn voice off.
 
 ## Development
 
@@ -452,6 +659,10 @@ Every test runs in throwaway fake homes under `$TMPDIR` and refuses to touch you
 None uses the network. The installer's contract (layer files, modes, the manifest, uninstall)
 is in [`docs/contracts.md`](docs/contracts.md). To add something to a layer, add a line to its
 `layer.tsv`.
+
+Three variables are test seams, not switches; leave them unset. In the installer's login-shell
+checks, `PALMFACE_REAL_HOME` stands in for your account's home, `PALMFACE_USER_SHELL` for
+its login shell, and `PALMFACE_CHSH_CMD` for `chsh` (the tests' stub).
 
 ## Credits
 

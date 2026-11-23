@@ -224,7 +224,8 @@ S0=$(snapshot "$H")
 P="$H/.config/palmface/tmux/plugins"
 out=$(SHELL=/bin/bash PALMFACE_GIT_BASE="file://$REPOS" kit_run "$KITP" "$H" install.sh --terminal --extras 2>&1); rc=$?
 check "install --terminal --extras (posts on) exits 0" '[ $rc -eq 0 ]' "$out"
-check "a bash login shell gets the zsh warning" 'printf "%s" "$out" | grep -q "your login shell is /bin/bash, not zsh"' "$out"
+check "a bash login shell gets the zsh warning exactly once (install up front; shell-check.sh does not repeat it)" \
+  '[ "$(printf "%s\n" "$out" | grep -c "your login shell is /bin/bash, not zsh")" = 1 ] && [ "$(printf "%s\n" "$out" | grep -n "not zsh" | head -1 | cut -d: -f1)" = 1 ]' "$out"
 check "the three plugins are cloned into the kit folder (no tpm)" \
   '[ -d "$P/tmux/.git" ] && [ -d "$P/tmux-resurrect/.git" ] && [ -d "$P/tmux-continuum/.git" ] && [ ! -e "$P/tpm" ]' "$(ls -la "$P" 2>&1)"
 check "each plugin is at its pinned commit, not the branch head that moved on" \
@@ -239,7 +240,7 @@ out=$(SHELL=/bin/zsh PALMFACE_GIT_BASE="file://$REPOS" kit_run "$KITP" "$H" inst
 S=$(snapshot "$H")
 check "second install (posts on) changes nothing and fetches nothing" \
   '[ $rc -eq 0 ] && [ "$S" = "$S1" ] && ! printf "%s" "$out" | grep -qE "fetched|cloned"' "$out$(snap_diff "$S1" "$S")"
-check "a zsh login shell gets no warning" '! printf "%s" "$out" | grep -q "not zsh"' "$out"
+check "a zsh login shell gets no warning, from install or shell-check.sh" '! printf "%s" "$out" | grep -q "not zsh"' "$out"
 TMUX_BIN=$(tool tmux)
 if [ -n "$TMUX_BIN" ]; then
   # The seeded ~/.tmux.conf is a symlink (skipped by install), so load Palmface's file directly.
@@ -312,7 +313,11 @@ check "offline: install still exits 0" '[ $rc -eq 0 ]' "$out"
 check "offline: one warning, and no plugin or partial clone on disk" \
   '[ "$(printf "%s\n" "$out" | grep -c "could not clone")" = 1 ] && [ -z "$(ls -A "$P" 2> /dev/null)" ]' "$out$(ls -A "$P" 2>&1)"
 out=$(env -i HOME="$H" PALMFACE_HOME="$H" SHELL=/bin/zsh ZDOTDIR="$H/zdot" /bin/bash "$KIT/terminal/post/shell-check.sh" 2>&1)
-check "a ZDOTDIR zsh gets told where to add the source line" 'printf "%s" "$out" | grep -q "your zsh reads $H/zdot/.zshrc"' "$out"
+check "a ZDOTDIR zsh gets told where to add the source line, .zprofile included" \
+  'printf "%s" "$out" | grep -qF "your zsh reads $H/zdot/.zshrc and $H/zdot/.zprofile, not ~/.zshrc and ~/.zprofile" && printf "%s" "$out" | grep -qF "add this line to $H/zdot/.zshrc:  source ~/.config/palmface/zsh/vibes.zsh"' "$out"
+if [ -f "$H/.config/palmface/zsh/paths.zsh" ]; then pz=1; else pz=0; fi
+check "the .zprofile source line is offered exactly when paths.zsh is installed" \
+  '[ "$(printf "%s\n" "$out" | grep -cF "and this one to $H/zdot/.zprofile:  source ~/.config/palmface/zsh/paths.zsh")" = "$pz" ]' "pz=$pz $out"
 n=$(find "$H/.config/palmface/ghostty/shaders" -name '*.glsl' | wc -l | tr -d ' ')
 check "8 licence-checked shaders installed, with PROVENANCE.md and the MIT text" \
   '[ "$n" = 8 ] && [ -f "$H/.config/palmface/ghostty/shaders/PROVENANCE.md" ] && [ -f "$H/.config/palmface/ghostty/shaders/LICENSE-cursor-shaders" ]' "$n"
@@ -335,6 +340,221 @@ if [ -n "$(tool tmuxinator)" ]; then
   out=$(env -i HOME="$H" PATH="$FULL" TERM=xterm-256color STARSHIP_CACHE="$WORK/starship-cache" tmuxinator debug palmface-example 2>&1); rc=$?
   check "tmuxinator reads palmface-example.yml" '[ $rc -eq 0 ] && printf "%s" "$out" | grep -q "new-session"' "$out"
 else skip "tmuxinator not installed"; fi
+rm_home "$H"
+
+# ─────────────────────────────────────────────────────────────────────────────────────────
+echo "4. the login shell: one warning up front, and the chsh offer on a terminal (chsh stubbed)"
+# The real chsh never runs here. The offer needs $HOME to be the account's home: PALMFACE_REAL_HOME
+# stands in for it, and every run that sets it also points PALMFACE_CHSH_CMD at a stub that only
+# logs its arguments. A real terminal comes from /usr/bin/expect (spawn/send): script(1) drops
+# the first line of input, so it cannot answer the prompt.
+STUB="$WORK/stub"
+mkdir -p "$STUB"
+printf '#!/bin/bash\necho "$@" >> "%s/chsh.log"\nexit ${STUB_RC:-0}\n' "$STUB" > "$STUB/chsh"
+chmod 755 "$STUB/chsh"
+cat > "$WORK/offer.exp" << 'EXP'
+# reply, install args...: install.sh on a pty; answer each [Y/n] with reply ("EOF" sends Ctrl-D)
+set timeout 120
+set reply [lindex $argv 0]
+spawn /bin/bash $env(KIT)/install.sh {*}[lrange $argv 1 end]
+expect {
+  -re {\[Y/n\] } { if {$reply eq "EOF"} { send -- "\004" } else { send -- "$reply\r" }; exp_continue }
+  timeout { puts "\nexpect: timed out"; exit 98 }
+  eof
+}
+catch wait result
+exit [lindex $result 3]
+EXP
+OUT="$WORK/offer.out"
+offer() { # reply, install args...: on a pty in a fresh fake home; LOGIN_SHELL, USHELL, REAL, STUB_RC
+  rm_home "$H"
+  H=$(new_home) || exit 2
+  : > "$STUB/chsh.log"
+  env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME -u XDG_CACHE_HOME -u ZDOTDIR \
+    KIT="$KIT" HOME="$H" SHELL="${LOGIN_SHELL:-/bin/bash}" STUB_RC="${STUB_RC:-0}" \
+    PALMFACE_REAL_HOME="${REAL-$H}" PALMFACE_USER_SHELL="${USHELL:-/bin/bash}" PALMFACE_CHSH_CMD="$STUB/chsh" \
+    /usr/bin/expect -f "$WORK/offer.exp" "$@" > "$OUT" 2>&1
+}
+prompts() { grep -ac '\[Y/n\]' "$OUT"; }
+called() { [ -s "$STUB/chsh.log" ]; }
+H=$(new_home) || exit 2
+
+# AC-1: the warning, without a prompt
+: > "$STUB/chsh.log"
+out=$(SHELL=/bin/bash PALMFACE_CHSH_CMD=$STUB/chsh kit_run "$KIT" "$H" install.sh --terminal --no-post < /dev/null 2>&1); rc=$?
+check "AC-1 bash, stdin closed: install exits 0 with the warning exactly once, as its first line" \
+  '[ $rc -eq 0 ] && [ "$(printf "%s\n" "$out" | grep -c "your login shell is /bin/bash, not zsh")" = 1 ] && printf "%s\n" "$out" | head -1 | grep -q "not zsh"' "$out"
+check "AC-1 bash, stdin closed: no prompt, no chsh call" \
+  '! printf "%s" "$out" | grep -q "\[Y/n\]" && ! printf "%s" "$out" | grep -q "switch your login shell" && ! called' "$out"
+out=$(kit_run "$KIT" "$H" uninstall.sh 2>&1); rc=$?
+NOTE1='note: uninstall does not change your shell back; chsh -s /bin/bash if you want'
+NOTE2='note: if claude is not found afterwards: echo '\''export PATH="$HOME/.local/bin:$PATH"'\'' >> ~/.zprofile'
+check "uninstall says it leaves the shell alone, and how to put claude back on PATH" \
+  '[ $rc -eq 0 ] && printf "%s\n" "$out" | grep -qxF "$NOTE1" && printf "%s\n" "$out" | grep -qxF "$NOTE2"' "$out"
+rm_home "$H"
+H=$(new_home) || exit 2
+out=$(SHELL=/bin/bash kit_run "$KIT" "$H" install.sh --claude --no-post < /dev/null 2>&1); rc=$?
+check "AC-1 --claude only: no warning, no prompt" \
+  '[ $rc -eq 0 ] && ! printf "%s" "$out" | grep -q "not zsh" && ! printf "%s" "$out" | grep -q "\[Y/n\]"' "$out"
+rm_home "$H"
+H=$(new_home) || exit 2
+out=$(SHELL=/bin/zsh kit_run "$KIT" "$H" install.sh --terminal --no-post < /dev/null 2>&1); rc=$?
+check "AC-1 zsh login shell: no \"not zsh\" text" '[ $rc -eq 0 ] && ! printf "%s" "$out" | grep -q "not zsh"' "$out"
+offer y --terminal --dry-run; rc=$?
+check "AC-1 --dry-run on a terminal, every other condition met: no prompt, the chsh stub never called" \
+  '[ $rc -eq 0 ] && [ "$(prompts)" = 0 ] && ! called && grep -aq "not zsh" "$OUT"' "rc=$rc $(cat "$OUT" "$STUB/chsh.log")"
+REAL='' offer y --terminal --no-post; rc=$?
+check "AC-1 a fake HOME without PALMFACE_REAL_HOME, on a terminal: no prompt, no chsh call" \
+  '[ $rc -eq 0 ] && [ "$(prompts)" = 0 ] && ! called' "rc=$rc $(cat "$OUT" "$STUB/chsh.log")"
+# Post scripts on, ZDOTDIR set (kit_run drops ZDOTDIR, so the env is spelled out), offline.
+guard_home "$H"
+out=$(env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME -u XDG_CACHE_HOME HOME="$H" SHELL=/bin/bash \
+  ZDOTDIR="$H/zd" PALMFACE_GIT_BASE="file://$WORK/no-such-dir" /bin/bash "$KIT/install.sh" --terminal < /dev/null 2>&1); rc=$?
+check "AC-1 posts on: shell-check.sh still prints the ZDOTDIR text, .zprofile included" \
+  '[ $rc -eq 0 ] && printf "%s" "$out" | grep -qF "your zsh reads $H/zd/.zshrc and $H/zd/.zprofile" && printf "%s" "$out" | grep -q "run   terminal/post/shell-check.sh"' "$out"
+check "AC-1 posts on: the login-shell warning still appears exactly once" \
+  '[ "$(printf "%s\n" "$out" | grep -c "not zsh")" = 1 ]' "$out"
+SC() { env -i HOME="$H" PALMFACE_HOME="$H" SHELL=/bin/bash ZDOTDIR="$H/zd" "$@" /bin/bash "$KIT/terminal/post/shell-check.sh" 2>&1; }
+out=$(SC PALMFACE_SHELL_CHECKED=1); rc=$?
+check "shell-check.sh with PALMFACE_SHELL_CHECKED=1: no login-shell part, the ZDOTDIR part stays" \
+  '[ $rc -eq 0 ] && ! printf "%s" "$out" | grep -q "not zsh" && printf "%s" "$out" | grep -q "your zsh reads $H/zd/.zshrc"' "$out"
+out=$(SC); rc=$?
+check "shell-check.sh run on its own still warns about a bash login shell" \
+  '[ $rc -eq 0 ] && [ "$(printf "%s\n" "$out" | grep -c "your login shell is /bin/bash, not zsh")" = 1 ]' "$out"
+
+# AC-2: the offer, over a TTY
+offer y --terminal --no-post; rc=$?
+check "AC-2 y: install exits 0" '[ $rc -eq 0 ]' "$(cat "$OUT")"
+check "AC-2 y: one prompt, the stub logged -s /bin/zsh once, and the switched line" \
+  '[ "$(prompts)" = 1 ] && [ "$(cat "$STUB/chsh.log")" = "-s /bin/zsh" ] && grep -aq "shell switched: quit and reopen your terminal" "$OUT"' \
+  "$(cat "$OUT" "$STUB/chsh.log" 2>&1)"
+check "AC-2 the prompt comes after the install's own output" \
+  'tr -d "\r" < "$OUT" | grep -anE "^(copy|block)  ~/|\[Y/n\]" | tail -1 | grep -q "\[Y/n\]"' "$(cat "$OUT")"
+offer '' --terminal --no-post; rc=$?
+check "AC-2 a bare Return runs chsh (the default is yes)" \
+  '[ $rc -eq 0 ] && grep -qx -- "-s /bin/zsh" "$STUB/chsh.log"' "$(cat "$OUT" "$STUB/chsh.log" 2>&1)"
+offer n --terminal --no-post; rc=$?
+check "AC-2 n: no chsh call, and the kept-your-shell line" \
+  '[ $rc -eq 0 ] && ! called && grep -aq "kept your shell; to switch later: chsh -s /bin/zsh" "$OUT"' "$(cat "$OUT" "$STUB/chsh.log" 2>&1)"
+STUB_RC=1 offer y --terminal --no-post; rc=$?
+check "AC-2 chsh exits 1: install still exits 0 and prints the manual chsh line" \
+  '[ $rc -eq 0 ] && called && grep -aq "chsh did not run; later: chsh -s /bin/zsh" "$OUT"' "rc=$rc $(cat "$OUT")"
+offer EOF --terminal --no-post; rc=$?
+check "AC-2 EOF (Ctrl-D) at the prompt: no chsh call, kept your shell" \
+  '[ $rc -eq 0 ] && [ "$(prompts)" = 1 ] && ! called && grep -aq "kept your shell" "$OUT"' "rc=$rc $(cat "$OUT" "$STUB/chsh.log" 2>&1)"
+rm_home "$H"
+H=$(new_home) || exit 2
+: > "$STUB/chsh.log"
+out=$(SHELL=/bin/bash PALMFACE_REAL_HOME="$H" PALMFACE_USER_SHELL=/bin/bash PALMFACE_CHSH_CMD="$STUB/chsh" \
+  kit_run "$KIT" "$H" install.sh --terminal --no-post < /dev/null 2>&1); rc=$?
+check "AC-2 stdin /dev/null (not a terminal), every other condition met: no prompt, no chsh call" \
+  '[ $rc -eq 0 ] && ! printf "%s" "$out" | grep -q "\[Y/n\]" && ! called' "$out"
+USHELL=/bin/zsh offer y --terminal --no-post; rc=$?
+check "AC-2 the account shell is already zsh: no prompt, no chsh call" \
+  '[ $rc -eq 0 ] && [ "$(prompts)" = 0 ] && ! called' "rc=$rc $(cat "$OUT")"
+LOGIN_SHELL=/usr/local/bin/fish USHELL=/usr/local/bin/fish offer y --terminal --no-post; rc=$?
+check "AC-2 a fish shell: the warning, but no prompt and no chsh call" \
+  '[ $rc -eq 0 ] && grep -aq "your login shell is /usr/local/bin/fish, not zsh" "$OUT" && [ "$(prompts)" = 0 ] && ! called' "rc=$rc $(cat "$OUT")"
+rm_home "$H"
+
+# ─────────────────────────────────────────────────────────────────────────────────────────
+echo "5. AC-3: the PATH lines (a real zsh login shell reads ~/.zprofile)"
+if [ -x /bin/zsh ]; then
+  H=$(new_home) || exit 2
+  mkdir -p "$H/.local/bin"
+  kit_run "$KIT" "$H" install.sh --terminal --no-post > /dev/null 2>&1
+  p=$(env -i HOME="$H" PATH=/usr/bin:/bin /bin/zsh -l -c 'print -r -- $PATH')
+  check "AC-3 ~/.local/bin on PATH exactly once" '[ "$(printf "%s" "$p" | tr ":" "\n" | grep -cxF "$H/.local/bin")" = 1 ]' "$p"
+  p2=$(env -i HOME="$H" PATH=/usr/bin:/bin /bin/zsh -l -c 'source ~/.config/palmface/zsh/paths.zsh; print -r -- $PATH')
+  check "AC-3 re-sourcing keeps one entry" '[ "$(printf "%s" "$p2" | tr ":" "\n" | grep -cxF "$H/.local/bin")" = 1 ]' "$p2"
+  check "AC-3 install put paths.zsh and one palmface block in .zprofile" \
+    '[ -f "$H/.config/palmface/zsh/paths.zsh" ] && [ "$(grep -c "^# >>> palmface:terminal >>>" "$H/.zprofile")" = 1 ] && grep -qF "zsh/paths.zsh" "$H/.zprofile"' "$(cat "$H/.zprofile" 2>&1)"
+  check_manifest "$H"
+  kit_run "$KIT" "$H" uninstall.sh > /dev/null 2>&1
+  check "AC-3 uninstall with no pre-existing .zprofile: the file is gone" '[ ! -e "$H/.zprofile" ]' "$(ls -A "$H")"
+  rm_home "$H"
+
+  H2=$(new_home) || exit 2
+  mkdir -p "$H2/.local/bin"
+  printf 'eval "$(/opt/homebrew/bin/brew shellenv)"\n' > "$H2/.zprofile"
+  S0=$(snapshot "$H2")
+  kit_run "$KIT" "$H2" install.sh --terminal --no-post > /dev/null 2>&1
+  check "AC-3 pre-existing .zprofile: the Homebrew line stays line 1" 'head -1 "$H2/.zprofile" | grep -q "brew shellenv"' "$(cat "$H2/.zprofile")"
+  check "AC-3 pre-existing .zprofile: the palmface block is appended" \
+    'grep -q "palmface" "$H2/.zprofile" && grep -q "zsh/paths.zsh" "$H2/.zprofile"' "$(cat "$H2/.zprofile")"
+  p=$(env -i HOME="$H2" PATH=/usr/bin:/bin /bin/zsh -l -c 'print -r -- $PATH')
+  check "AC-3 pre-existing .zprofile: ~/.local/bin still on PATH exactly once" \
+    '[ "$(printf "%s" "$p" | tr ":" "\n" | grep -cxF "$H2/.local/bin")" = 1 ]' "$p"
+  check_manifest "$H2"
+  kit_run "$KIT" "$H2" uninstall.sh > /dev/null 2>&1
+  S=$(snapshot "$H2")
+  check "AC-3 uninstall restores .zprofile exactly (home snapshot equal)" '[ "$S" = "$S0" ]' "$(snap_diff "$S0" "$S")"
+  rm_home "$H2"
+else
+  echo "  skip  /bin/zsh missing: AC-3 login-shell tests"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────────────────
+echo "6. the greeting names camp only when camp exists (a real window, so the load order counts)"
+cat > "$WORK/greet.exp" << 'EXP'
+# zsh -i on a pty: it draws the greeting, reaches its first prompt (precmd runs), the test hook
+# in ~/.zshrc runs the command and exits; expect waits for that eof, never for a fixed time.
+set timeout 120
+spawn /bin/zsh -i
+expect {
+  timeout { puts "\nexpect: timed out"; exit 98 }
+  eof
+}
+EXP
+greet_in() { # fake home, command to run at the first prompt, env...: what a new window shows
+  local h=$1 cmd=$2 t="$WORK/greet.log"
+  shift 2
+  guard_home "$h"
+  # A real interactive zsh on a pty that reaches its first prompt (so precmd runs). A hook that
+  # ~/.zshrc registers last runs the command there and exits (expect waits for eof), so nothing depends on timing.
+  cp "$h/.zshrc" "$h/.zshrc.keep"
+  printf '\n_t_hook() { eval "$PALMFACE_T_CMD"; exit 0; }\nprecmd_functions+=(_t_hook)\n' >> "$h/.zshrc"
+  env -i HOME="$h" PATH="$FULL" TERM=xterm-256color COLUMNS=100 STARSHIP_CACHE="$WORK/starship-cache" \
+    PALMFACE_T_CMD="$cmd" "$@" /usr/bin/expect -f "$WORK/greet.exp" > "$t" 2> /dev/null < /dev/null
+  mv "$h/.zshrc.keep" "$h/.zshrc"
+  LC_ALL=C sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$t" | tr -d '\r'
+}
+ncamp() { printf '%s\n' "$1" | grep -cF "camp: your projects"; } # how many camp lines
+H=$(new_home) || exit 2
+out=$(kit_run "$KIT" "$H" install.sh --terminal --extras --no-post 2>&1); rc=$?
+check "install --terminal --extras --no-post (greeting fixture) exits 0" '[ $rc -eq 0 ]' "$out"
+g=$(greet_in "$H" 'echo reached-$((6*7))')
+check "greeting shows camp: your projects (exactly once) when the launcher is installed" \
+  '[ "$(ncamp "$g")" = 1 ] && printf "%s" "$g" | grep -q "reached-42"' "$g"
+g=$(greet_in "$H" 'echo reached-$((6*7))' PALMFACE_LAUNCHER=off)
+check "greeting has no camp line with PALMFACE_LAUNCHER=off" \
+  '[ "$(ncamp "$g")" = 0 ] && printf "%s" "$g" | grep -q "reached-42"' "$g"
+# The user's final .zshrc state decides, not the order of the blocks.
+cp "$H/.zshrc" "$WORK/zshrc.installed"
+printf '\nexport PALMFACE_LAUNCHER=off\n' >> "$H/.zshrc"
+g=$(greet_in "$H" 'echo reached-$((6*7))')
+check "PALMFACE_LAUNCHER=off set in .zshrc after the palmface blocks: no camp line" \
+  '[ "$(ncamp "$g")" = 0 ] && printf "%s" "$g" | grep -q "reached-42"' "$g"
+cp "$WORK/zshrc.installed" "$H/.zshrc"
+printf '\ncamp() { echo mine; }\n' >> "$H/.zshrc"
+g=$(greet_in "$H" camp)
+check "a camp function of the user's own, defined after the blocks: camp line shows and camp prints mine" \
+  '[ "$(ncamp "$g")" = 1 ] && printf "%s" "$g" | grep -qx "mine"' "$g"
+cp "$WORK/zshrc.installed" "$H/.zshrc"
+mkdir -p "$H/bin"
+printf '#!/bin/sh\necho mine-on-path\n' > "$H/bin/camp"
+chmod 755 "$H/bin/camp"
+printf '\nexport PATH=$HOME/bin:$PATH\n' >> "$H/.zshrc"
+g=$(greet_in "$H" camp)
+check "a user's own ~/bin/camp put on PATH after the blocks: camp line shows and the user's camp runs" \
+  '[ "$(ncamp "$g")" = 1 ] && printf "%s" "$g" | grep -qx "mine-on-path"' "$g"
+rm_home "$H"
+H=$(new_home) || exit 2
+out=$(kit_run "$KIT" "$H" install.sh --terminal --no-post 2>&1); rc=$?
+check "install --terminal --no-post (greeting fixture) exits 0" '[ $rc -eq 0 ]' "$out"
+g=$(greet_in "$H" 'echo reached-$((6*7))')
+check "greeting has no camp line on a terminal-only install (no launcher)" \
+  '[ "$(ncamp "$g")" = 0 ] && printf "%s" "$g" | grep -q "reached-42"' "$g"
 rm_home "$H"
 
 summary "smoke-terminal"

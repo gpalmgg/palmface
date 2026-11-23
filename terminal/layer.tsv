@@ -16,6 +16,8 @@ copy	tmux/load-plugins.sh	.config/palmface/tmux/load-plugins.sh
 block	tmux/tmux.conf.block	.tmux.conf
 copy	zsh/vibes.zsh	.config/palmface/zsh/vibes.zsh
 block	zsh/zshrc.block	.zshrc
+copy	zsh/paths.zsh	.config/palmface/zsh/paths.zsh
+block	zsh/zprofile.block	.zprofile
 copy	bin/screensaver.sh	.config/palmface/bin/screensaver.sh
 tree	cows	.config/palmface/cows
 copy	git/delta.gitconfig	.config/palmface/git/delta.gitconfig

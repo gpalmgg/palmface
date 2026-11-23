@@ -1,8 +1,8 @@
 # claude layer — what install.sh writes for this layer.
-# One line per entry, TAB-separated:  mode<TAB>src<TAB>dest
+# One line per entry, TAB-separated:  mode<TAB>src<TAB>dest[<TAB>option]
 #   mode  copy | tree | block | json | post
 #   src   path relative to this directory
-#   dest  path relative to $HOME (no leading / or ~, no ..); "-" for post
+#   dest  path relative to $HOME (no leading / or ~, no ..); "-" for post; option (json only): drop-if:VAR=VAL:key,key
 # Full contract: "Install contract" in docs/contracts.md.
 #
 # Kit-owned files live under ~/.claude/palmface/ (replaced on re-install, removed on uninstall).
@@ -30,5 +30,5 @@ copy	hooks/context-size.sh	.claude/palmface/hooks/context-size.sh
 copy	hooks/context-guardian.sh	.claude/palmface/hooks/context-guardian.sh
 copy	hooks/cost-tracker.sh	.claude/palmface/hooks/cost-tracker.sh
 
-# Hook registrations, merged into the user's settings.json (their values win, arrays union)
-json	settings.template.json	.claude/settings.json
+# Hook registrations and voice on, merged into settings.json (yours win); PALMFACE_VOICE=off skips voice
+json	settings.template.json	.claude/settings.json	drop-if:PALMFACE_VOICE=off:voiceEnabled,voice

@@ -1,6 +1,6 @@
 {
   "name": "palmface-statusline",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Statusline for Claude Code, part of the Palmface kit. A modified copy of claude-hud by Jarrod Watts (MIT).",
   "type": "module",

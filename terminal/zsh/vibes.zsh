@@ -103,7 +103,17 @@ hello() {
   fi
   _palmface_center "$(print -r -- "$critter" | sed "s/^/${iris}/;s/\$/${off}/")"
   _palmface_center "${muted}$(_palmface_line)${off}"
+  [[ ${1-} == --no-camp ]] || _palmface_camp_line
   print
+}
+
+# One line, only when `camp` exists in this shell right now (the extras launcher, or your own).
+_palmface_camp_line() {
+  emulate -L zsh
+  [[ ${PALMFACE_LAUNCHER:-on} == off ]] && return 0 # you switched the launcher off, wherever
+  (( $+functions[camp] || $+commands[camp] )) || return 0
+  [[ -n ${_palmface_camp_late-} ]] && printf '\r\e[2K' # the first prompt's "%" filler is on this row
+  _palmface_center $'\e[90mcamp: your projects\e[0m'
 }
 
 # critters with something to say: owl, meow (a cat), nap (a sleepy cat)
@@ -200,7 +210,17 @@ fi
 if [[ ${PALMFACE_GREETING:-on} != off && -z ${TMUX-} && -z ${PALMFACE_GREETED-} && -t 1 \
   && -z ${__p9k_instant_prompt_active-} ]]; then
   export PALMFACE_GREETED=1
-  hello
+  hello --no-camp
+  # `camp` may be defined later in ~/.zshrc (the extras block, or your own), so the camp line
+  # waits for the first prompt, when everything has loaded. It prints once and removes itself.
+  autoload -Uz add-zsh-hook
+  _palmface_camp_once() {
+    add-zsh-hook -d precmd _palmface_camp_once
+    unfunction _palmface_camp_once
+    local _palmface_camp_late=1
+    _palmface_camp_line
+  }
+  add-zsh-hook precmd _palmface_camp_once
 fi
 
 # ── Idle screensaver at a bare prompt (tmux has its own: see tmux.conf) ─────────────────────

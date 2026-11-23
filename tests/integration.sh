@@ -206,7 +206,7 @@ check "no README shell block holds a # (pasted into zsh, it would be an argument
 DOCS='^(README\.md|REVIEW\.md|SECURITY\.md|THIRD-PARTY-NOTICES\.md|docs/|tests/)'
 code_files() { grep -vE "$DOCS" "$WORK/public.list" | sed "s|^|$KIT/|"; }
 code_sw=$(code_files | tr '\n' '\0' | xargs -0 grep -ohE 'PALMFACE_[A-Z_]+' 2> /dev/null | sort -u |
-  grep -vxE 'PALMFACE_(HOME|LAYER_DIR|KIT_DIR|GREETED)') # the installer's post-script env, and an internal flag
+  grep -vxE 'PALMFACE_(HOME|LAYER_DIR|KIT_DIR|GREETED|SHELL_CHECKED)') # the installer's post-script env, and internal flags
 doc_sw=$(grep -oE 'PALMFACE_[A-Z_]+' "$README" | sort -u)
 check "every switch the code reads is in the README" '[ -z "$(comm -23 <(echo "$code_sw") <(echo "$doc_sw"))" ]' \
   "undocumented: $(comm -23 <(echo "$code_sw") <(echo "$doc_sw") | tr '\n' ' ')"
@@ -247,5 +247,22 @@ for lic in statusline/LICENSE extras/ghostty/shaders/LICENSE-cursor-shaders; do
   while IFS= read -r c; do grep -qF "$c" "$NOTICES" || nomiss="$nomiss [$c]"; done < <(grep -oE '^Copyright \([cC]\) [0-9]{4} [^(]*[^ (]' "$KIT/$lic" | grep -v Palmface)
 done
 check "the notices name every shader, every tmux plugin and each vendored copyright line" '[ -z "$nomiss" ]' "missing:$nomiss"
+
+# Brewfile Ghostty guard, on a temp copy with the guard paths pointed at a temp dir (never the real /Applications)
+if command -v brew > /dev/null 2>&1; then
+  BT="$WORK/brew"; mkdir -p "$BT/Applications" "$BT/Caskroom"
+  sed -e "s#\[\"/Applications\", File.expand_path(\"~/Applications\")\]#[\"$BT/Applications\"]#" \
+    -e "s#\#{ENV.fetch(\"HOMEBREW_PREFIX\", \"/opt/homebrew\")}#$BT#" "$KIT/Brewfile" > "$BT/Brewfile"
+  ghostty_n() { HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew bundle list --file="$BT/Brewfile" --casks 2> /dev/null | grep -cx ghostty; }
+  check "Brewfile copy points its Ghostty guard at the temp dir, not the real one" \
+    'grep -qF "$BT/Applications" "$BT/Brewfile" && grep -qF "$BT/Caskroom/ghostty" "$BT/Brewfile"'
+  check "Brewfile: app path missing, ghostty is listed" '[ "$(ghostty_n)" = 1 ]' "$(ghostty_n)"
+  mkdir "$BT/Applications/Ghostty.app"
+  check "Brewfile: app present and no Caskroom, ghostty is not listed" '[ "$(ghostty_n)" = 0 ]' "$(ghostty_n)"
+  mkdir -p "$BT/Caskroom/ghostty"
+  check "Brewfile: app present and Caskroom present (brew-installed), ghostty is listed" '[ "$(ghostty_n)" = 1 ]' "$(ghostty_n)"
+else
+  echo "  skip  Brewfile Ghostty guard checks (brew not on PATH)"
+fi
 
 summary "integration"

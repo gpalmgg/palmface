@@ -4,28 +4,30 @@ The two specs the scripts implement. Layers add lines to their `layer.tsv`; they
 the installer's logic. The tests (`tests/framework.sh`, `tests/fresh-home.sh`) prove both.
 
 ## Install contract
-- `install.sh` / `uninstall.sh` at the repo root: `#!/bin/bash`, bash 3.2-clean (no `declare -A`, `mapfile`, `${x,,}`), shellcheck-clean, macOS-only guard. They write only under `$HOME`. Every write goes through one code path that `--dry-run` turns into a printed line; dry-run creates nothing, not even the state dir.
+- `install.sh` / `uninstall.sh` at the repo root: `#!/bin/bash`, bash 3.2-clean (no `declare -A`, `mapfile`, `${x,,}`), shellcheck-clean, macOS-only guard. They write only under `$HOME` (the one exception, the login shell, is below). Every write goes through one code path that `--dry-run` turns into a printed line; dry-run creates nothing, not even the state dir.
 - Flags: `--terminal` → `terminal/` · `--claude` → `claude/ statusline/ skills/` · `--extras` → `extras/` · `--all` → all five · `--dry-run` · `--no-post` (skip post scripts, e.g. offline tests). Layers always run in the order terminal, claude, statusline, skills, extras. No layer flag → usage, exit 2.
 - **Layer contract.** A layer dir holds `layer.tsv`; install.sh only reads these files: adding to a layer means adding lines, never installer logic. Line = `mode<TAB>src<TAB>dest`, `#` comments allowed. `src` is relative to the layer dir. `dest` is relative to `$HOME` (no leading `/` or `~`, no `..`). Modes:
   - `copy`: a kit-owned file, copied (never symlinked, so the clone can be deleted). A different pre-existing file is backed up once, then replaced.
   - `tree`: `src` is a directory, expanded into one `copy` per file under it.
   - `block`: the `src` snippet is placed between `# >>> palmface:<layer> >>>` and `# <<< palmface:<layer> <<<` (`<!-- … -->` markers for `.md` dests), appended to `dest` (created if absent). Re-install replaces the block in place. Markers match even if an editor turned the file CRLF. Each layer gets at most one block per file; several layers may each have one.
-  - `json`: `src` is deep-merged into `dest` with jq. Objects merge recursively, the user's existing scalars win, arrays are unioned with the user's items first. jq is required only when a json line is present.
+  - `json`: `src` is deep-merged into `dest` with jq. Objects merge recursively, the user's existing scalars win, arrays are unioned with the user's items first. jq is required only when a json line is present. A json line may carry one option as a 4th column, `drop-if:VAR=VAL:k1,k2`: when the environment variable `VAR` equals `VAL`, the top-level keys `k1`, `k2` are left out of what is merged (and out of what uninstall later removes). Any other 4th column, a 5th column, or `drop-if` naming a key the source lacks stops the install with `<layer>/layer.tsv:<line>`.
   - `post`: `src` is a script run after the layer's files, with `dest` set to `-`. It may write only under the kit-owned roots `~/.config/palmface/` and `~/.claude/palmface/`. It must be idempotent: a re-run changes nothing. When it needs the network and the network is down, it warns and exits 0, so the install continues. It is skipped under `--no-post` and only printed under `--dry-run`. It is also skipped, with a warning, when a kit root or any directory between `$HOME` and it is a symlink. Code it fetches is pinned: the terminal layer's plugin script fetches each tmux plugin at the 40-character commit in `terminal/tmux/plugins.list`, checks `git rev-parse HEAD` against it, and refuses the plugin on a mismatch.
 - **Per-target policy.** User files are never replaced wholesale; they only get `block` or `json` lines. All kit content lives in kit-owned files under `~/.config/palmface/` or `~/.claude/palmface/` (or at Claude Code's fixed paths such as `~/.claude/skills/<name>/`, as `copy`), and blocks only point at it:
 
   | Target | Mode | Block content |
   |---|---|---|
   | `~/.zshrc` | block | `source ~/.config/palmface/zsh/vibes.zsh` |
+  | `~/.zprofile` | block | `source ~/.config/palmface/zsh/paths.zsh` (Homebrew and `~/.local/bin` on PATH, once) |
   | `~/.tmux.conf` | block | `source-file ~/.config/palmface/tmux/tmux.conf` |
   | `~/.gitconfig` | block | `[include] path = ~/.config/palmface/git/delta.gitconfig` |
   | `~/.config/ghostty/config` | block | `config-file = ~/.config/palmface/ghostty/config` |
   | `~/.claude/CLAUDE.md` | block | `@~/.claude/palmface/CLAUDE.md` import |
-  | `~/.claude/settings.json` | json | from `claude/settings.template.json` (hooks) and `statusline/settings.json` (statusLine) |
+  | `~/.claude/settings.json` | json | from `claude/settings.template.json` (hooks; `voiceEnabled` and `voice.enabled`, left out with `PALMFACE_VOICE=off`) and `statusline/settings.json` (statusLine) |
   | starship | none | `vibes.zsh` exports `STARSHIP_CONFIG=~/.config/palmface/starship.toml` |
   | skills, hooks, scripts | copy/tree | n/a |
 
   Install never writes through a symlink (dotfile repos). That covers a dest that is a symlink, a dest under a symlinked directory below `$HOME`, and a post script whose kit root sits under one. It skips the entry and prints the lines to add by hand. Install refuses to run as root.
+- **The one exception: the login shell.** Install may run `chsh -s /bin/zsh`, and only after an explicit yes at its `[Y/n]` prompt (Return takes the default, yes). It asks once, at the end of a successful install, only when all of these hold: not `--dry-run`; the terminal layer is selected; stdin is a terminal; `$HOME` is the account's own home (`dscl` `NFSHomeDirectory`); the account's shell (`dscl` `UserShell`) ends in `/bash`; `/bin/zsh` is listed in `/etc/shells`. EOF or no terminal means no. A failed `chsh` is never fatal: install still exits 0 and prints the command to run later. A terminal-layer install sets `PALMFACE_SHELL_CHECKED=1`, so `terminal/post/shell-check.sh` skips its login-shell part, and on a login shell other than zsh it prints one warning before anything is written. Uninstall never changes the shell back; it says so. `PALMFACE_REAL_HOME`, `PALMFACE_USER_SHELL` and `PALMFACE_CHSH_CMD` are test seams standing in for the home, the account shell and `chsh`.
 - **State.** `~/.palmface-backup/` holds:
   - `manifest.tsv`, append-only and write-ahead;
   - `<ts>/` dirs (`date +%Y%m%d-%H%M%S`, created only when something needs saving), holding:

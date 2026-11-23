@@ -1,6 +1,6 @@
 # launcher.zsh: Palmface's project launcher. Sourced from ~/.zshrc by the extras layer.
 #
-#   palmface-camp                 a menu of the git projects in your projects folder; pick one and
+#   palmface-camp                 a menu of the projects in your projects folder; pick one and
 #   (camp, when the name is free)  Claude Code starts there
 #   camp <query> [claude args]    start straight away in the first project whose name has <query>
 #   camp --model opus             any leading claude flags: menu first, then claude with them
@@ -9,9 +9,10 @@
 #   camp -h | --help
 #
 # In the menu:
-#   N       start in project N, or open/close group N (a folder that holds git projects)
+#   N       start in project N, or open/close group N (a folder that holds projects)
 #   N.M     start in project M inside group N;  N.0 starts in the group folder itself
-#   suffixes, combinable:  w  in a new git worktree (--worktree)
+#   suffixes, combinable:  w  in a new git worktree (--worktree); a folder without .git
+#                             starts without one, and camp says so
 #                          r  continue the last conversation there (--continue)
 #                          +K also give Claude project K's folder (--add-dir), e.g. 3r+1.2
 #   f       search everything with fzf (when installed);  q or Enter  quit
@@ -24,16 +25,20 @@
 #   PALMFACE_LAUNCH_CMD     what to start (default claude)
 #   PALMFACE_LAUNCHER=off   don't define any of this
 #
+# Every folder in a projects folder is listed, git or not; hidden ones (.name) are skipped. A plain
+# folder (no .git) shows "plain folder" where a git project shows its branch. Only subfolders
+# with a .git make a folder a group.
+#
 # Nothing here writes a file: groups you open stay open until you leave the menu.
 
 [[ ${PALMFACE_LAUNCHER:-on} == off ]] && return 0
 
 _palmface_camp_scan() { # fill the _kcamp_* arrays from the projects folders
   emulate -L zsh
-  typeset -ga _kcamp_name _kcamp_path _kcamp_group _kcamp_cname _kcamp_cpath _kcamp_cpar
-  _kcamp_name=() _kcamp_path=() _kcamp_group=() _kcamp_cname=() _kcamp_cpath=() _kcamp_cpar=()
+  typeset -ga _kcamp_name _kcamp_path _kcamp_group _kcamp_git _kcamp_cname _kcamp_cpath _kcamp_cpar
+  _kcamp_name=() _kcamp_path=() _kcamp_group=() _kcamp_git=() _kcamp_cname=() _kcamp_cpath=() _kcamp_cpar=()
   local -a roots ign kids
-  local root d c base i line
+  local root d c base i g line
   roots=(${(s.:.)${PALMFACE_PROJECTS_DIR:-$HOME/Projects}})
   if [[ -r $HOME/.claude/palmface-local/projects.ignore ]]; then
     while IFS= read -r line || [[ -n $line ]]; do
@@ -53,8 +58,9 @@ _palmface_camp_scan() { # fill the _kcamp_* arrays from the projects folders
         (( ${ign[(Ie)$base/${c:t}]} )) && continue
         kids+=($c)
       done
-      [[ -e $d/.git ]] || (( $#kids )) || continue
-      _kcamp_name+=($base) _kcamp_path+=($d) _kcamp_group+=($(( $#kids > 0 )))
+      g=0 # every visible folder stays, git or plain; the glob above never matches a hidden one
+      [[ -e $d/.git ]] && g=1
+      _kcamp_name+=($base) _kcamp_path+=($d) _kcamp_group+=($(( $#kids > 0 ))) _kcamp_git+=($g)
       i=$#_kcamp_name
       for c in $kids; do
         _kcamp_cname+=(${c:t}) _kcamp_cpath+=($c) _kcamp_cpar+=($i)
@@ -138,9 +144,11 @@ _palmface_camp_show() { # open group numbers...: draw the menu
       else
         print -rP -- "%F{6}│%f %F{3}${(l:3:)i}%f  %F{5}▸%f ${(r:$((w - 2)):)n} %F{8}($k)%f"
       fi
-    else
+    elif (( _kcamp_git[i] )); then
       b=$(_palmface_camp_branch ${_kcamp_path[i]})
       print -rP -- "%F{6}│%f %F{3}${(l:3:)i}%f  ${(r:$w:)n} %F{8}${b//\%/%%}%f"
+    else
+      print -rP -- "%F{6}│%f %F{3}${(l:3:)i}%f  ${(r:$w:)n} %F{8}plain folder%f"
     fi
   done
   print -rP -- "%F{6}╰─%f %F{8}N start · N.M in a group · w worktree · r continue · +K add a folder · f find · q quit%f"
@@ -162,12 +170,12 @@ palmface-camp() {
   case ${1:-} in
     -h | --help)
       print -r -- "usage: camp [query] [claude args...] | camp --list | camp --print <query>"
-      print -r -- "Scans ${PALMFACE_PROJECTS_DIR:-~/Projects} for git projects. Details: the top of ~/.config/palmface/zsh/launcher.zsh"
+      print -r -- "Scans ${PALMFACE_PROJECTS_DIR:-~/Projects} for projects. Details: the top of ~/.config/palmface/zsh/launcher.zsh"
       return 0 ;;
   esac
   _palmface_camp_scan
   if (( ! $#_kcamp_name )); then
-    print -r -- "camp: no git projects in ${PALMFACE_PROJECTS_DIR:-~/Projects}. Set PALMFACE_PROJECTS_DIR to the folder(s) that hold them." >&2
+    print -r -- "camp: no projects in ${PALMFACE_PROJECTS_DIR:-~/Projects}. Set PALMFACE_PROJECTS_DIR to the folder(s) that hold them." >&2
     return 1
   fi
   case ${1:-} in
@@ -213,7 +221,13 @@ palmface-camp() {
     fi
     if ! dir=$(_palmface_camp_at $id); then print -r -- "camp: there is no $id"; continue; fi
     flags=()
-    [[ $sfx == *w* ]] && flags+=(--worktree)
+    if [[ $sfx == *w* ]]; then # N.M (M > 0) is always a git project; N and N.0 have _kcamp_git
+      if [[ $id == *.* && ${id#*.} != 0 ]] || (( _kcamp_git[${id%%.*}] )); then
+        flags+=(--worktree)
+      else
+        print -r -- "camp: ${_kcamp_name[${id%%.*}]//[[:cntrl:]]/?} is not a git project; starting without a worktree"
+      fi
+    fi
     [[ $sfx == *r* ]] && flags+=(--continue)
     for k in ${(s:+:)adds}; do
       [[ -n $k ]] || continue
@@ -225,4 +239,9 @@ palmface-camp() {
   done
 }
 
-(( $+aliases[camp] || $+functions[camp] || $+commands[camp] )) || camp() { palmface-camp "$@"; } # yours win
+# yours win: not defined when you already have a camp; and a camp program that lands on PATH
+# later in ~/.zshrc is run instead, checked at call time. palmface-camp is always available.
+(( $+aliases[camp] || $+functions[camp] || $+commands[camp] )) || camp() {
+  if (( $+commands[camp] )); then command camp "$@"; return; fi
+  palmface-camp "$@"
+}

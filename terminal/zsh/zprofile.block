@@ -1,0 +1,1 @@
+if [[ -r ~/.config/palmface/zsh/paths.zsh ]]; then source ~/.config/palmface/zsh/paths.zsh; fi

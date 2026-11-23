@@ -5,7 +5,8 @@
 #
 # Covers every mode (copy, tree, block, json, post), dry-run, re-install, a changed kit
 # source, user edits after install, a crash mid-install, a lost "done" record, symlinked
-# dotfiles, paths with spaces, bad layer lines, and uninstall with no manifest.
+# dotfiles, paths with spaces, bad layer lines, the drop-if option on a json line, and
+# uninstall with no manifest.
 set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -337,6 +338,71 @@ inst --claude > /dev/null
 jq '.theme = "dark"' "$H/.claude/settings.json" > "$H/s.tmp" && mv "$H/s.tmp" "$H/.claude/settings.json"
 out=$(uninst); rc=$?
 check "only the user's own key is left" '[ $rc -eq 0 ] && jq -e ". == {\"theme\": \"dark\"}" "$H/.claude/settings.json" >/dev/null' "$out$(cat "$H/.claude/settings.json" 2>&1)"
+rm_home "$H"
+
+echo "13. drop-if: a json line that leaves keys out when a variable says so"
+printf '{"keep":1,"dropA":true,"dropB":{"x":true}}\n' > "$FIX/extras/drop.json"
+DROP_LINE=$(printf 'json\tdrop.json\t.config/drop.json\tdrop-if:FIXTURE_DROP=off:dropA,dropB')
+printf '# fixture: drop-if\n%s\n' "$DROP_LINE" > "$FIX/extras/layer.tsv"
+D() { printf '%s' "$H/.config/drop.json"; }
+H=$(new_home) || exit 2
+S0=$(snapshot "$H")
+out=$(inst --extras); rc=$?
+check "drop-if not applied when the variable is unset: every key merged" \
+  '[ $rc -eq 0 ] && jq -e ". == {\"keep\": 1, \"dropA\": true, \"dropB\": {\"x\": true}}" "$(D)" >/dev/null' "$out$(cat "$(D)" 2>&1)"
+uninst > /dev/null
+out=$(FIXTURE_DROP=on inst --extras); rc=$?
+check "drop-if not applied when the variable differs: every key merged" \
+  '[ $rc -eq 0 ] && jq -e "has(\"dropA\") and has(\"dropB\")" "$(D)" >/dev/null' "$out$(cat "$(D)" 2>&1)"
+uninst > /dev/null
+S=$(snapshot "$H")
+check "drop-if: uninstall after an install with nothing dropped is exact" '[ "$S" = "$S0" ]' "$(snap_diff "$S0" "$S")"
+out=$(FIXTURE_DROP=off inst --extras --dry-run); rc=$?
+S=$(snapshot "$H")
+check "drop-if applied in a dry run: writes nothing" '[ $rc -eq 0 ] && [ "$S" = "$S0" ]' "$out$(snap_diff "$S0" "$S")"
+out=$(FIXTURE_DROP=off inst --extras); rc=$?
+check "drop-if applied when the variable matches: those keys left out, the rest merged" \
+  '[ $rc -eq 0 ] && jq -e ". == {\"keep\": 1}" "$(D)" >/dev/null' "$out$(cat "$(D)" 2>&1)"
+check "drop-if: the kit json itself is untouched" 'jq -e "has(\"dropA\") and has(\"dropB\")" "$FIX/extras/drop.json" >/dev/null'
+FR=$(awk -F'\t' '$1 == "kit" && $2 == ".config/drop.json" { print $3 }' "$(MAN)")
+check "drop-if: the fragment kept for uninstall is what was merged" \
+  '[ -n "$FR" ] && jq -e ". == {\"keep\": 1}" "$H/.palmface-backup/$FR" >/dev/null' "$FR"
+out=$(uninst); rc=$?
+S=$(snapshot "$H")
+check "drop-if: uninstall after a drop is exact" '[ $rc -eq 0 ] && [ "$S" = "$S0" ]' "$out$(snap_diff "$S0" "$S")"
+rm_home "$H"
+H=$(new_home) || exit 2
+mkdir -p "$H/.config"
+printf '{"mine":1}\n' > "$(D)"
+FIXTURE_DROP=off inst --extras > /dev/null
+jq '.dropA = true' "$(D)" > "$H/d.tmp" && mv "$H/d.tmp" "$(D)"
+out=$(uninst); rc=$?
+check "drop-if: a dropped key the user sets after install is theirs, and uninstall keeps it" \
+  '[ $rc -eq 0 ] && jq -e ". == {\"mine\": 1, \"dropA\": true}" "$(D)" >/dev/null' "$out$(cat "$(D)" 2>&1)"
+rm_home "$H"
+H=$(new_home) || exit 2
+S0=$(snapshot "$H")
+printf '# fixture: an unknown option\n%s\n' "$(printf 'json\tdrop.json\t.config/drop.json\tbogus:x')" > "$FIX/extras/layer.tsv"
+out=$(inst --extras); rc=$?
+S=$(snapshot "$H")
+check "an unknown option in the 4th column dies, naming the layer and the line" \
+  '[ $rc -ne 0 ] && printf "%s" "$out" | grep -qF "extras/layer.tsv:2: unknown option '"'"'bogus:x'"'"'" && [ "$S" = "$S0" ]' "$out"
+bad_opt() { # description, layer.tsv line, the error it must give after "extras/layer.tsv:1: "
+  printf '%s\n' "$2" > "$FIX/extras/layer.tsv"
+  want="extras/layer.tsv:1: $3"
+  out=$(inst --extras); rc=$?
+  S=$(snapshot "$H")
+  check "rejects $1 at its layer and line, writes nothing" \
+    '[ $rc -ne 0 ] && [ "$S" = "$S0" ] && printf "%s" "$out" | grep -qF "$want"' "want: $want"$'\n'"got:  $out"
+}
+bad_opt "a drop-if on a copy line"           "$(printf 'copy\tdrop.json\t.x\tdrop-if:FIXTURE_DROP=off:dropA')" "drop-if works on json lines only"
+bad_opt "a drop-if without a value"          "$(printf 'json\tdrop.json\t.x.json\tdrop-if:FIXTURE_DROP:dropA')" "want drop-if:VAR=VAL:key,key"
+bad_opt "a drop-if with an empty value"      "$(printf 'json\tdrop.json\t.x.json\tdrop-if:FIXTURE_DROP=:dropA')" "drop-if: no value for FIXTURE_DROP"
+bad_opt "a drop-if with a bad variable name" "$(printf 'json\tdrop.json\t.x.json\tdrop-if:FIX-DROP=off:dropA')" "drop-if: 'FIX-DROP' is not a variable name"
+bad_opt "a drop-if with an empty key"        "$(printf 'json\tdrop.json\t.x.json\tdrop-if:FIXTURE_DROP=off:dropA,')" "drop-if: want one or more keys"
+bad_opt "a drop-if naming keys the json lacks" "$(printf 'json\tdrop.json\t.x.json\tdrop-if:FIXTURE_DROP=off:nope,dropA,gone')" "drop-if names keys extras/drop.json does not have: nope,gone"
+bad_opt "two options on one line"            "$(printf 'json\tdrop.json\t.x.json\tdrop-if:FIXTURE_DROP=off:dropA\tmore')" "want mode<TAB>src<TAB>dest, and at most one option"
+printf '# empty\n' > "$FIX/extras/layer.tsv"
 rm_home "$H"
 
 echo "8. the guard"

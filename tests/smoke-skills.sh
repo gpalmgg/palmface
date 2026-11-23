@@ -452,9 +452,13 @@ for t in persona voice; do
 done
 check "both starters are blank: headings, empty bullets and guidance comments only, with the copy line" '[ -z "$blank" ]' "$blank"
 mkdir -p "$H/Projects/alpha/.git" "$H/Projects/beta/api/.git" "$H/Projects/beta/web/.git" "$H/Projects/notes" \
-  "$H/Projects/old/.git" "$H/Projects/.hidden/.git" "$H/My Code/zeta/.git"
+  "$H/Projects/old/.git" "$H/Projects/.hidden/.git" "$H/My Code/zeta/.git" \
+  "$H/Projects/plaingroup/sub" "$H/Projects/scratch" "$H/Projects/.plainhidden" "$H/Vacant"
 printf 'ref: refs/heads/main\n' > "$H/Projects/alpha/.git/HEAD"
 printf 'ref: refs/heads/dev\n' > "$H/Projects/beta/api/.git/HEAD"
+mkdir -p "$WORK/fzf" # an fzf that picks the notes line out of what camp hands it
+printf '#!/bin/bash\nexec awk -F "\\t" '\''$1 == "notes"'\''\n' > "$WORK/fzf/fzf"
+chmod 755 "$WORK/fzf/fzf"
 camp() { # stdin, env..., zsh code: run code in a zsh that read the installed ~/.zshrc, writing nothing
   local code
   code=${*: -1}
@@ -462,14 +466,16 @@ camp() { # stdin, env..., zsh code: run code in a zsh that read the installed ~/
 }
 HS0=$(snapshot "$H")
 out=$(camp 'camp --list'); rc=$?
-check "camp --list: git projects in ~/Projects by name, a folder of repos as a group; no plain, hidden or other folders" \
-  '[ $rc -eq 0 ] && [ "$out" = "$(printf "alpha\t%s\nbeta/\t%s\nbeta/api\t%s\nbeta/web\t%s\nold\t%s" "$H/Projects/alpha" "$H/Projects/beta" "$H/Projects/beta/api" "$H/Projects/beta/web" "$H/Projects/old")" ]' "rc=$rc $out $(cat "$ERR")"
+check "camp --list: every folder in ~/Projects by name, plain ones like notes too, a folder of repos as a group; no hidden (git or plain) or other folders" \
+  '[ $rc -eq 0 ] && [ "$out" = "$(printf "alpha\t%s\nbeta/\t%s\nbeta/api\t%s\nbeta/web\t%s\nnotes\t%s\nold\t%s\nplaingroup\t%s\nscratch\t%s" "$H/Projects/alpha" "$H/Projects/beta" "$H/Projects/beta/api" "$H/Projects/beta/web" "$H/Projects/notes" "$H/Projects/old" "$H/Projects/plaingroup" "$H/Projects/scratch")" ]' "rc=$rc $out $(cat "$ERR")"
+check "camp --list stays name TAB folder: two columns on every line, no plain-folder marker in a name" \
+  '[ -z "$(printf "%s\n" "$out" | awk -F "\t" "NF != 2")" ] && ! printf "%s" "$out" | grep -q "plain folder"' "$out"
 mkdir -p "$H/.claude/palmface-local"
-printf '# hidden from the menu\nold\nbeta/web\n' > "$H/.claude/palmface-local/projects.ignore"
+printf '# hidden from the menu\nold\nbeta/web\nscratch\n' > "$H/.claude/palmface-local/projects.ignore"
 HS0=$(snapshot "$H")
 out=$(camp PALMFACE_PROJECTS_DIR="$H/Projects:$H/My Code" 'camp --list'); rc=$?
-check "camp: your ignore list hides names and group/name; PALMFACE_PROJECTS_DIR scans several folders, spaces and all" \
-  '[ "$(printf "%s\n" "$out" | cut -f1 | tr "\n" " ")" = "alpha beta/ beta/api zeta " ]' "$out"
+check "camp: your ignore list hides names, plain folders too (scratch), and group/name; PALMFACE_PROJECTS_DIR scans several folders, spaces and all" \
+  '[ "$(printf "%s\n" "$out" | cut -f1 | tr "\n" " ")" = "alpha beta/ beta/api notes plaingroup zeta " ]' "$out"
 out=$(camp 'camp -p ap'); rc=$?
 check "camp -p: the first match's folder, starting nothing" '[ $rc -eq 0 ] && [ "$out" = "$H/Projects/beta/api" ] && [ "$(calls launch)" = 0 ]' "rc=$rc $out"
 out=$(camp 'camp alp --model opus'); rc=$?
@@ -481,16 +487,57 @@ check "the menu: 2 opens the group; 2.1r+1 starts in beta/api with --continue an
 out=$(printf '1w\n' | camp 'camp --model haiku'); rc=$?
 check "the menu: leading claude flags pass through; w asks for a worktree" \
   '[ "$(tail -1 "$LOGS/launch.log")" = "cwd=$H/Projects/alpha args=--worktree --model haiku" ]' "$(tail -1 "$LOGS/launch.log")"
+# With the ignore list on, the menu is: 1 alpha, 2 beta (a group: api), 3 notes, 4 plaingroup.
+menu=$(printf 'q\n' | camp 'camp'); rc=$?
+plain=$(printf '%s\n' "$menu" | LC_ALL=C sed 's/\x1b\[[0-9;]*m//g')
+dim_b=$(printf '%s\n' "$menu" | LC_ALL=C sed -n 's/.* alpha *\(\x1b\[[0-9;]*m\)main.*/\1/p')
+dim_p=$(printf '%s\n' "$menu" | LC_ALL=C sed -n 's/.* notes *\(\x1b\[[0-9;]*m\)plain folder.*/\1/p')
+check "the menu marks notes (and plaingroup) with a dim plain folder where a git project shows its branch" \
+  '[ $rc -eq 0 ] && printf "%s\n" "$plain" | grep -qE " notes +plain folder$" && printf "%s\n" "$plain" | grep -qE " plaingroup +plain folder$" && printf "%s\n" "$plain" | grep -qE " alpha +main$" && [ "$(printf "%s\n" "$plain" | grep -c "plain folder")" = 2 ] && [ -n "$dim_b" ] && [ "$dim_p" = "$dim_b" ]' "$plain"
+NOTICE="is not a git project; starting without a worktree"
+n=$(calls launch)
+out=$(printf '3w\n' | camp 'camp'); rc=$?
+check "the menu: Nw on notes (no .git) starts there without --worktree and prints the notice" \
+  '[ "$(calls launch)" = $((n + 1)) ] && [ "$(tail -1 "$LOGS/launch.log")" = "cwd=$H/Projects/notes args=" ] && printf "%s\n" "$out" | grep -qxF "camp: notes $NOTICE"' "$out $(cat "$ERR") $(tail -1 "$LOGS/launch.log")"
+n=$(calls launch)
+out=$(printf '2.0w\n' | camp 'camp'); rc=$?
+check "the menu: N.0w on a group folder without .git (beta) starts there without --worktree and prints the notice" \
+  '[ "$(calls launch)" = $((n + 1)) ] && [ "$(tail -1 "$LOGS/launch.log")" = "cwd=$H/Projects/beta args=" ] && printf "%s\n" "$out" | grep -qxF "camp: beta $NOTICE"' "$out $(cat "$ERR") $(tail -1 "$LOGS/launch.log")"
+n=$(calls launch)
+out=$(printf '4.0wr\n' | camp 'camp'); rc=$?
+check "the menu: N.0wr on plaingroup (only plain subfolders, so not a group) starts with --continue only and prints the notice" \
+  '[ "$(calls launch)" = $((n + 1)) ] && [ "$(tail -1 "$LOGS/launch.log")" = "cwd=$H/Projects/plaingroup args=--continue" ] && printf "%s\n" "$out" | grep -qxF "camp: plaingroup $NOTICE"' "$out $(cat "$ERR") $(tail -1 "$LOGS/launch.log")"
+out=$(printf '2.1w\n' | camp 'camp'); rc=$?
+check "the menu: N.Mw inside a group still asks for a worktree, with no notice" \
+  '[ "$(tail -1 "$LOGS/launch.log")" = "cwd=$H/Projects/beta/api args=--worktree" ] && ! printf "%s" "$out" | grep -qF "$NOTICE"' "$out $(cat "$ERR")"
+n=$(calls launch)
+out=$(printf 'f\n' | camp PATH="$WORK/fzf:$BARE" 'camp'); rc=$?
+check "the menu: f hands the name TAB folder lines to fzf and starts in the picked plain folder (notes)" \
+  '[ "$(calls launch)" = $((n + 1)) ] && [ "$(tail -1 "$LOGS/launch.log")" = "cwd=$H/Projects/notes args=" ]' "$out $(cat "$ERR")"
+n=$(calls launch)
+out=$(camp 'camp -p not'); rc=$?
+out2=$(camp 'camp plaing --model opus'); rc2=$?
+check "camp -p and camp <query> reach plain folders like any project (notes, plaingroup)" \
+  '[ $rc -eq 0 ] && [ "$out" = "$H/Projects/notes" ] && [ $rc2 -eq 0 ] && [ "$(calls launch)" = $((n + 1)) ] && [ "$(tail -1 "$LOGS/launch.log")" = "cwd=$H/Projects/plaingroup args=--model opus" ]' "rc=$rc $out rc2=$rc2 $out2 $(cat "$ERR")"
 n=$(calls launch)
 out=$(printf 'zz\n9\nq\n' | camp 'camp'); rc=$?
 check "the menu: a bad choice is explained, q leaves, nothing starts" \
   '[ $rc -eq 0 ] && printf "%s" "$out" | grep -q "isn.t a choice" && printf "%s" "$out" | grep -q "there is no 9" && [ "$(calls launch)" = "$n" ]' "$out"
 out=$(camp 'camp() { echo mine; }; source ~/.config/palmface/zsh/launcher.zsh; camp'); rc=$?
 check "your own camp wins; palmface-camp is always there" '[ "$out" = mine ]' "$out"
+mkdir -p "$WORK/lateprog"
+printf '#!/bin/sh\necho mine-late\n' > "$WORK/lateprog/camp"
+chmod 755 "$WORK/lateprog/camp"
+out=$(camp 'source ~/.config/palmface/zsh/launcher.zsh; path=('"$WORK"'/lateprog $path); camp; palmface-camp --list | head -1 | cut -f1'); rc=$?
+check "a camp program put on PATH after the launcher is sourced runs instead; palmface-camp --list still works" \
+  '[ "$(printf "%s\n" "$out" | sed -n 1p)" = mine-late ] && [ -n "$(printf "%s\n" "$out" | sed -n 2p)" ]' "$out $(cat "$ERR")"
 out=$(camp PALMFACE_LAUNCHER=off 'whence -w palmface-camp camp'); rc=$?
 check "PALMFACE_LAUNCHER=off defines nothing" '[ $rc -ne 0 ] && printf "%s" "$out" | grep -q "camp: none"' "$out"
 out=$(camp PALMFACE_PROJECTS_DIR="$H/empty" 'camp'); rc=$?
 check "no projects: exit 1 and a hint to set PALMFACE_PROJECTS_DIR" '[ $rc -eq 1 ] && grep -q PALMFACE_PROJECTS_DIR "$ERR"' "rc=$rc $(cat "$ERR")"
+out=$(camp PALMFACE_PROJECTS_DIR="$H/Vacant" 'camp --list; r=$?; camp; print -r -- $r $?'); rc=$?
+check "an empty projects folder: camp --list and camp both say no projects and exit 1" \
+  '[ "$out" = "1 1" ] && [ "$(grep -cxF "camp: no projects in $H/Vacant. Set PALMFACE_PROJECTS_DIR to the folder(s) that hold them." "$ERR")" = 2 ]' "$out $(cat "$ERR")"
 check "the launcher wrote nothing" '[ "$(snapshot "$H")" = "$HS0" ]' "$(snap_diff "$HS0" "$(snapshot "$H")")"
 # A repository's own .git/HEAD (OSC 52) and a folder name (CSI) carrying terminal escapes.
 ESC=$(printf '\033') BEL=$(printf '\007')
@@ -502,7 +549,7 @@ raw_left=$(printf '%s%s' "$menu" "$lst" | LC_ALL=C sed 's/\x1b\[[0-9;]*m//g' | L
 check "camp shows escapes from .git/HEAD and folder names as ?, in the menu and in --list" \
   '[ "$raw_left" = 0 ] && printf "%s" "$menu" | grep -qF "ma?]52;c;aGk=?in" && printf "%s" "$lst" | grep -qF "r?[31mx" && printf "%s" "$menu" | grep -qF "r?[31mx"' "$menu$lst"
 rm -rf "$H/Esc"
-rm -rf "$H/Projects" "$H/My Code" "$H/.claude/palmface-local"
+rm -rf "$H/Projects" "$H/My Code" "$H/Vacant" "$H/.claude/palmface-local"
 out=$(kit_run "$KIT" "$H" uninstall.sh 2>&1); rc=$?
 S=$(snapshot "$H")
 check "uninstall exits 0 and the home is back exactly" '[ $rc -eq 0 ] && [ "$S" = "$S0" ]' "$out

@@ -147,8 +147,8 @@ check "settings.json: the critter and sound hooks are registered through \$HOME"
 check "settings.json holds no absolute home path" '! grep -qF "$H" "$S" && ! grep -q "/Users/" "$S"'
 check "the hooks template carries no permissions, allowlists or absolute paths" \
   'jq -e "(has(\"permissions\") | not) and ([.. | strings | select(test(\"^/Users/|allow\"))] | length == 0)" "$KIT/claude/settings.template.json" > /dev/null'
-check "the template sets no permission mode, no dangerous-mode skip, no model and no env" \
-  'jq -e "keys == [\"hooks\"] and ([paths | map(tostring) | join(\".\") | select(test(\"defaultMode|skipDangerous|model|permissions\"))] | length == 0)" "$KIT/claude/settings.template.json" > /dev/null' \
+check "the template sets only hooks and voice: no permission mode, no dangerous-mode skip, no model and no env" \
+  'jq -e "keys == [\"hooks\",\"voice\",\"voiceEnabled\"] and ([paths | map(tostring) | join(\".\") | select(test(\"defaultMode|skipDangerous|model|permissions\"))] | length == 0)" "$KIT/claude/settings.template.json" > /dev/null' \
   "$(jq -c keys "$KIT/claude/settings.template.json")"
 BEHAVIOUR="judgment-preflight sycophancy-stop closing-drip anti-guessing context-size context-guardian cost-tracker"
 missing=""
@@ -719,6 +719,89 @@ hits=$(grep -rIlE -e "/Users/|/var/folders/|/private/(var|tmp)/" \
   "$H/.claude/palmface" 2> /dev/null)
 hits="$hits$(grep -rIlF -e "$H" -e "$REAL_HOME/" -e "$TMP_ROOT" "$H/.claude/palmface" 2> /dev/null)"
 check "no installed file ($n of them) holds an absolute home path or a path into another setup" '[ "$n" -gt 40 ] && [ -z "$hits" ]' "$hits"
+rm_home "$H"
+
+echo
+echo "10. voice: on by default (both keys, as /voice writes them); PALMFACE_VOICE=off leaves it out"
+# Claude Code reads (voice.enabled ?? voiceEnabled) === true; ?? falls through on null only.
+VOICE_ON='(if .voice.enabled == null then .voiceEnabled else .voice.enabled end) == true'
+theme_edit() { jq '.theme = "dark"' "$1/.claude/settings.json" > "$1/s.tmp" && mv "$1/s.tmp" "$1/.claude/settings.json"; }
+H=$(new_home) || exit 2
+S0=$(snapshot "$H")
+kit_run "$KIT" "$H" install.sh --claude --no-post > /dev/null 2>&1
+v=$(jq -c '[.voiceEnabled, .voice.enabled]' "$H/.claude/settings.json")
+check "AC-4 both voice keys true" '[ "$v" = "[true,true]" ]' "$v"
+out=$(kit_run "$KIT" "$H" uninstall.sh 2>&1); rc=$?
+S=$(snapshot "$H")
+check "AC-4 uninstall removes the voice keys Palmface added (settings.json it made is gone, home exact)" \
+  '[ $rc -eq 0 ] && [ ! -e "$H/.claude/settings.json" ] && [ "$S" = "$S0" ]' "$out$(snap_diff "$S0" "$S")"
+rm_home "$H"
+H=$(new_home) || exit 2
+kit_run "$KIT" "$H" install.sh --claude --no-post > /dev/null 2>&1
+theme_edit "$H"
+out=$(kit_run "$KIT" "$H" uninstall.sh 2>&1); rc=$?
+check "AC-4 uninstall after you edit settings.json still removes the voice keys Palmface added" \
+  '[ $rc -eq 0 ] && jq -e ". == {\"theme\": \"dark\"}" "$H/.claude/settings.json" > /dev/null' "$out$(cat "$H/.claude/settings.json" 2>&1)"
+rm_home "$H"
+
+H=$(new_home) || exit 2
+mkdir -p "$H/.claude"
+printf '{"model":"sonnet","voiceEnabled":true,"voice":{"enabled":true,"mode":"tap"}}\n' > "$H/.claude/settings.json"
+S0=$(snapshot "$H")
+kit_run "$KIT" "$H" install.sh --claude --no-post > /dev/null 2>&1
+out=$(kit_run "$KIT" "$H" uninstall.sh 2>&1); rc=$?
+S=$(snapshot "$H")
+check "AC-4 uninstall keeps the voice keys you had before install (home exact)" '[ $rc -eq 0 ] && [ "$S" = "$S0" ]' "$out$(snap_diff "$S0" "$S")"
+rm_home "$H"
+H=$(new_home) || exit 2
+mkdir -p "$H/.claude"
+printf '{"model":"sonnet","voiceEnabled":true,"voice":{"enabled":true,"mode":"tap"}}\n' > "$H/.claude/settings.json"
+kit_run "$KIT" "$H" install.sh --claude --no-post > /dev/null 2>&1
+theme_edit "$H"
+out=$(kit_run "$KIT" "$H" uninstall.sh 2>&1); rc=$?
+check "AC-4 uninstall after you edit settings.json keeps the voice keys you had before install" \
+  '[ $rc -eq 0 ] && jq -e ". == {\"model\": \"sonnet\", \"voiceEnabled\": true, \"voice\": {\"enabled\": true, \"mode\": \"tap\"}, \"theme\": \"dark\"}" "$H/.claude/settings.json" > /dev/null' \
+  "$out$(cat "$H/.claude/settings.json" 2>&1)"
+rm_home "$H"
+
+H=$(new_home) || exit 2
+mkdir -p "$H/.claude"
+echo '{"voice":{"enabled":false}}' > "$H/.claude/settings.json"
+S0=$(snapshot "$H")
+kit_run "$KIT" "$H" install.sh --claude --no-post > /dev/null 2>&1
+check "AC-4 user false wins" '[ "$(jq -c ".voice.enabled" "$H/.claude/settings.json")" = false ]' "$(cat "$H/.claude/settings.json")"
+check "AC-4 user false wins: voice stays off as Claude Code reads the two keys" \
+  'jq -e "($VOICE_ON) | not" "$H/.claude/settings.json" > /dev/null' "$(cat "$H/.claude/settings.json")"
+out=$(kit_run "$KIT" "$H" uninstall.sh 2>&1); rc=$?
+S=$(snapshot "$H")
+check "AC-4 user false: uninstall gives your settings.json back exactly" '[ $rc -eq 0 ] && [ "$S" = "$S0" ]' "$out$(snap_diff "$S0" "$S")"
+rm_home "$H"
+
+H=$(new_home) || exit 2
+S0=$(snapshot "$H")
+out=$(PALMFACE_VOICE=off kit_run "$KIT" "$H" install.sh --claude --no-post 2>&1); rc=$?
+check "AC-4 off: keys absent" \
+  '[ $rc -eq 0 ] && jq -e "(has(\"voiceEnabled\") | not) and (has(\"voice\") | not) and (.hooks.Stop | length == 5)" "$H/.claude/settings.json" > /dev/null' \
+  "$out$(cat "$H/.claude/settings.json" 2>&1)"
+frag=$(awk -F'\t' '$1 == "kit" && $2 == ".claude/settings.json" && $3 ~ /\/kit\/claude\// { print $3 }' "$H/.palmface-backup/manifest.tsv")
+check "AC-4 off: the fragment kept for uninstall is what was merged (no voice keys)" \
+  '[ -n "$frag" ] && jq -e "keys == [\"hooks\"]" "$H/.palmface-backup/$frag" > /dev/null' "$frag"
+out=$(kit_run "$KIT" "$H" uninstall.sh 2>&1); rc=$?
+S=$(snapshot "$H")
+check "AC-4 off: uninstall exact" '[ $rc -eq 0 ] && [ "$S" = "$S0" ]' "$out$(snap_diff "$S0" "$S")"
+rm_home "$H"
+H=$(new_home) || exit 2
+PALMFACE_VOICE=off kit_run "$KIT" "$H" install.sh --claude --no-post > /dev/null 2>&1
+jq '.voiceEnabled = true | .voice = {"enabled": true}' "$H/.claude/settings.json" > "$H/s.tmp" && mv "$H/s.tmp" "$H/.claude/settings.json"
+out=$(kit_run "$KIT" "$H" uninstall.sh 2>&1); rc=$?
+check "AC-4 off: voice you turn on yourself after install is yours, and uninstall keeps it" \
+  '[ $rc -eq 0 ] && jq -e ". == {\"voiceEnabled\": true, \"voice\": {\"enabled\": true}}" "$H/.claude/settings.json" > /dev/null' \
+  "$out$(cat "$H/.claude/settings.json" 2>&1)"
+rm_home "$H"
+H=$(new_home) || exit 2
+out=$(PALMFACE_VOICE=on kit_run "$KIT" "$H" install.sh --claude --no-post 2>&1); rc=$?
+check "AC-4 PALMFACE_VOICE set to anything but off: voice on" \
+  '[ $rc -eq 0 ] && [ "$(jq -c "[.voiceEnabled, .voice.enabled]" "$H/.claude/settings.json")" = "[true,true]" ]' "$out"
 rm_home "$H"
 
 summary "smoke-claude"

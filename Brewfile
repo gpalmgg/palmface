@@ -3,7 +3,10 @@
 # exists before using it, so you can trim this list.
 
 # ── Terminal ──
-cask "ghostty"
+# Ghostty downloaded by hand? Then the cask would fail on the existing app; skip it.
+ghostty_app = ["/Applications", File.expand_path("~/Applications")].any? { |d| File.exist?("#{d}/Ghostty.app") }
+ghostty_brew = Dir.exist?("#{ENV.fetch("HOMEBREW_PREFIX", "/opt/homebrew")}/Caskroom/ghostty")
+cask "ghostty" unless ghostty_app && !ghostty_brew
 cask "font-maple-mono"
 brew "starship"
 brew "tmux"

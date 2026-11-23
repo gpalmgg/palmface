@@ -277,6 +277,11 @@ undo_dir() { # dir rel recorded by install
   fi
 }
 
+closing_notes() { # what uninstall leaves to you: the login shell, and claude's PATH line
+  say "note: uninstall does not change your shell back; chsh -s /bin/bash if you want"
+  say "note: if claude is not found afterwards: echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zprofile"
+}
+
 main() {
   local arg rel mode pre backup bsha d
   for arg in "$@"; do
@@ -318,6 +323,7 @@ main() {
     mv "$MANIFEST" "$STATE_DIR/manifest.uninstalled-$UTS.tsv"
     say "uninstalled: $RESTORED files put back. Backups and anything kept are in ~/.palmface-backup/"
   fi
+  closing_notes
   [ "$PROBLEMS" -eq 0 ] || exit 1
 }
 

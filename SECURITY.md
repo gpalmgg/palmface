@@ -25,8 +25,11 @@ repository count. Anything else that claims to be a Palmface update, including a
 
 - **`install.sh`**, when you run it: it copies kit files into `~/.config/palmface/`,
   `~/.claude/palmface/` and `~/.claude/skills/palmface-*/`, adds one marked block to a few
-  dotfiles, merges hook entries into `~/.claude/settings.json`, and backs up every original in
-  `~/.palmface-backup/`. It never uses sudo and never runs Homebrew.
+  dotfiles, merges hook entries and the voice setting into `~/.claude/settings.json`, and backs
+  up every original in `~/.palmface-backup/`. It never uses sudo and never runs Homebrew. On an
+  account whose login shell is bash, it then asks whether to switch the login shell to zsh, and
+  runs `chsh -s /bin/zsh` only if you say yes. `chsh` asks for your Mac password itself;
+  Palmface never sees it.
 - **The tmux plugins**, fetched once by the terminal layer's install from GitHub, each at a
   pinned commit that is checked before use. tmux runs them when it starts. tmux-resurrect saves
   each pane's command line every 15 minutes (the tmux config says how to turn that off).
